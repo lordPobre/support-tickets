@@ -1,0 +1,225 @@
+{% extends "base.html" %}
+{% block title %}Ticket {{ ticket.token }} — Soporte{% endblock %}
+
+{% block content %}
+<div class="px-8 py-6">
+
+  <!-- Header -->
+  <div class="flex items-start justify-between mb-6">
+    <div>
+      <div class="flex items-center gap-3 mb-2">
+        <a href="{% url 'ticket_list' %}" class="text-slate-400 hover:text-slate-600 transition">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
+        </a>
+        <code class="font-mono font-bold text-brand-600 bg-brand-50 px-3 py-1 rounded-lg text-sm">{{ ticket.token }}</code>
+        {% if ticket.category == "software" %}
+        <span class="text-sm px-3 py-1 rounded-full text-white font-medium" style="background:#6366F1">💻 Software</span>
+        {% elif ticket.category == "hardware" %}
+        <span class="text-sm px-3 py-1 rounded-full text-white font-medium" style="background:#D97706">🖥️ Hardware</span>
+        {% elif ticket.category == "email" %}
+        <span class="text-sm px-3 py-1 rounded-full text-white font-medium" style="background:#059669">✉️ Email</span>
+        {% endif %}
+        {% if ticket.status %}
+        <span class="text-sm px-3 py-1 rounded-full text-white font-medium" style="background-color: {{ ticket.status.color }}">{{ ticket.status.name }}</span>
+        {% endif %}
+        {% if ticket.priority %}
+        <span class="text-sm px-3 py-1 rounded-full text-white font-medium" style="background-color: {{ ticket.priority.color }}">{{ ticket.priority.name }}</span>
+        {% endif %}
+      </div>
+      <h1 class="text-xl font-bold text-slate-900">{{ ticket.subject }}</h1>
+      <p class="text-slate-500 text-sm mt-1">{{ ticket.company.name }} · {{ ticket.requester_name }} · {{ ticket.created_at|date:"d/m/Y H:i" }}</p>
+    </div>
+    <div class="flex items-center gap-2">
+      <!-- Portal link -->
+      <a href="{% url 'portal_ticket' ticket.company.slug ticket.token %}" target="_blank"
+        class="px-3 py-2 text-sm text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition flex items-center gap-2">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+        Ver portal
+      </a>
+      {% if ticket.status.is_closed_state %}
+      <a href="{% url 'ticket_pdf' ticket.token %}"
+        class="px-3 py-2 text-sm text-white bg-red-500 hover:bg-red-600 rounded-lg transition flex items-center gap-2">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+        PDF
+      </a>
+      <a href="{% url 'ticket_image' ticket.token %}"
+        class="px-3 py-2 text-sm text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition flex items-center gap-2">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+        Imagen
+      </a>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+    <!-- Main: description + comments -->
+    <div class="lg:col-span-2 space-y-5">
+
+      <!-- Description -->
+      <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+        <h2 class="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-3">Descripción</h2>
+        <p class="text-slate-800 whitespace-pre-wrap leading-relaxed">{{ ticket.description }}</p>
+
+        {% if ticket.attachments.exists %}
+        <div class="mt-5 pt-5 border-t border-slate-100">
+          <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Adjuntos</h3>
+          <div class="flex flex-wrap gap-2">
+            {% for attachment in ticket.attachments.all %}
+            <a href="{{ attachment.file.url }}" target="_blank"
+              class="flex items-center gap-2 px-3 py-2 bg-slate-50 hover:bg-slate-100 rounded-lg text-sm text-slate-700 border border-slate-200 transition">
+              <svg class="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" /></svg>
+              {{ attachment.original_name }}
+            </a>
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- Comments -->
+      <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+        <div class="px-6 py-4 border-b border-slate-100">
+          <h2 class="text-sm font-semibold text-slate-500 uppercase tracking-wider">Conversación</h2>
+        </div>
+        <div class="divide-y divide-slate-50">
+          {% for comment in ticket.comments.all %}
+          <div class="px-6 py-5 {% if comment.is_internal %}bg-amber-50 border-l-4 border-amber-300{% endif %}">
+            <div class="flex items-start justify-between mb-2">
+              <div class="flex items-center gap-2">
+                <div class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold
+                  {% if comment.is_staff %}bg-brand-600 text-white{% else %}bg-slate-200 text-slate-600{% endif %}">
+                  {{ comment.author_name|first|upper }}
+                </div>
+                <span class="text-sm font-semibold text-slate-800">{{ comment.author_name }}</span>
+                {% if comment.is_staff %}
+                <span class="text-xs bg-brand-50 text-brand-600 px-2 py-0.5 rounded-full font-medium">Staff</span>
+                {% endif %}
+                {% if comment.is_internal %}
+                <span class="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-medium">Nota interna</span>
+                {% endif %}
+              </div>
+              <span class="text-xs text-slate-400">{{ comment.created_at|date:"d/m/Y H:i" }}</span>
+            </div>
+            <p class="text-slate-700 text-sm whitespace-pre-wrap pl-9">{{ comment.message }}</p>
+          </div>
+          {% empty %}
+          <div class="px-6 py-8 text-center text-slate-400 text-sm">No hay comentarios aún.</div>
+          {% endfor %}
+        </div>
+
+        <!-- Add comment form -->
+        <div class="px-6 py-5 border-t border-slate-100 bg-slate-50">
+          <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="comment" />
+            <div class="mb-3">
+              {{ comment_form.message }}
+            </div>
+            <div class="flex items-center justify-between">
+              <label class="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
+                <input type="checkbox" name="is_internal" class="w-4 h-4 text-brand-600 rounded border-slate-300" />
+                Nota interna (no visible al cliente)
+              </label>
+              <button type="submit" class="px-4 py-2 bg-brand-600 text-white text-sm font-medium rounded-lg hover:bg-brand-700 transition">
+                Enviar respuesta
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sidebar: actions + info -->
+    <div class="space-y-5">
+
+      <!-- Change status -->
+      <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
+        <h3 class="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-3">Cambiar Estado</h3>
+        <div class="space-y-2">
+          {% for status in statuses %}
+          <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="update_status" />
+            <input type="hidden" name="status_id" value="{{ status.pk }}" />
+            <button type="submit" class="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm hover:bg-slate-50 transition text-left
+              {% if ticket.status.pk == status.pk %}ring-2 ring-offset-1 ring-brand-400 bg-slate-50{% endif %}">
+              <span class="w-3 h-3 rounded-full flex-shrink-0" style="background-color: {{ status.color }}"></span>
+              {{ status.name }}
+            </button>
+          </form>
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- Assign value -->
+      <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
+        <h3 class="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-3">Valor del Ticket</h3>
+        <form method="post" class="space-y-3">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="update_value" />
+          <div>
+            <label class="block text-xs text-slate-400 mb-1">Monto (CLP)</label>
+            <div class="relative">
+              <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">$</span>
+              <input type="number" name="assigned_value" value="{{ ticket.assigned_value|default:'' }}" min="0" step="500"
+                placeholder="0"
+                class="w-full pl-7 pr-3 py-2 text-sm rounded-lg border border-slate-200 focus:ring-2 focus:ring-brand-500 focus:border-transparent outline-none" />
+            </div>
+          </div>
+          <button type="submit" class="w-full py-2 bg-slate-800 text-white text-sm font-medium rounded-lg hover:bg-slate-900 transition">
+            Guardar valor
+          </button>
+        </form>
+
+        <!-- Billing toggle -->
+        <div class="mt-4 pt-4 border-t border-slate-100">
+          <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="toggle_billed" />
+            <button type="submit" class="w-full flex items-center justify-center gap-2 py-2 text-sm font-medium rounded-lg transition
+              {% if ticket.is_billed %}bg-emerald-50 text-emerald-700 hover:bg-emerald-100{% else %}bg-slate-100 text-slate-600 hover:bg-slate-200{% endif %}">
+              {% if ticket.is_billed %}
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+              Marcado como facturado
+              {% else %}
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+              Marcar como facturado
+              {% endif %}
+            </button>
+          </form>
+        </div>
+      </div>
+
+      <!-- Info -->
+      <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 text-sm space-y-3">
+        <h3 class="text-sm font-semibold text-slate-500 uppercase tracking-wider">Información</h3>
+        <div>
+          <span class="text-slate-400 text-xs">Empresa</span>
+          <p class="font-medium text-slate-800">{{ ticket.company.name }}</p>
+        </div>
+        <div>
+          <span class="text-slate-400 text-xs">Solicitante</span>
+          <p class="font-medium text-slate-800">{{ ticket.requester_name }}</p>
+          <p class="text-slate-500 text-xs">{{ ticket.requester_email }}</p>
+        </div>
+        <div>
+          <span class="text-slate-400 text-xs">Creado</span>
+          <p class="font-medium text-slate-800">{{ ticket.created_at|date:"d/m/Y H:i" }}</p>
+        </div>
+        {% if ticket.closed_at %}
+        <div>
+          <span class="text-slate-400 text-xs">Cerrado</span>
+          <p class="font-medium text-slate-800">{{ ticket.closed_at|date:"d/m/Y H:i" }}</p>
+        </div>
+        {% endif %}
+        <div>
+          <span class="text-slate-400 text-xs">URL Portal Cliente</span>
+          <p class="font-mono text-xs text-brand-600 break-all mt-1">/portal/{{ ticket.company.slug }}/ticket/{{ ticket.token }}/</p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+{% endblock %}

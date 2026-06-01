@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Iniciar sesión — Soporte</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = {
+      theme: { extend: { fontFamily: { sans: ['"Inter"', 'system-ui'] }, colors: { brand: { 600: '#4f46e5', 700: '#4338ca' } } } }
+    }
+  </script>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4 font-sans">
+
+  <div class="w-full max-w-sm">
+    <div class="text-center mb-8">
+      <div class="w-14 h-14 bg-brand-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-brand-600/30">
+        <svg class="w-7 h-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        </svg>
+      </div>
+      <h1 class="text-2xl font-bold text-white">SoporteApp</h1>
+      <p class="text-slate-400 mt-1 text-sm">Panel interno de soporte</p>
+    </div>
+
+    <div class="bg-white rounded-2xl shadow-xl p-8">
+      <h2 class="text-lg font-semibold text-slate-800 mb-6">Iniciar sesión</h2>
+
+      {% if form.errors %}
+      <div class="bg-red-50 text-red-700 text-sm px-4 py-3 rounded-lg mb-4 border border-red-100">
+        Usuario o contraseña incorrectos.
+      </div>
+      {% endif %}
+
+      <form method="post" class="space-y-4">
+        {% csrf_token %}
+        <div>
+          <label class="block text-xs font-semibold text-slate-500 mb-1.5">Usuario</label>
+          <input type="text" name="username" autofocus required
+            class="w-full px-4 py-3 rounded-lg border border-slate-200 focus:ring-2 focus:ring-brand-600 focus:border-transparent outline-none transition text-slate-800 text-sm" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-500 mb-1.5">Contraseña</label>
+          <input type="password" name="password" required
+            class="w-full px-4 py-3 rounded-lg border border-slate-200 focus:ring-2 focus:ring-brand-600 focus:border-transparent outline-none transition text-slate-800 text-sm" />
+        </div>
+        <input type="hidden" name="next" value="{{ next }}" />
+        <button type="submit"
+          class="w-full py-3 bg-brand-600 hover:bg-brand-700 text-white font-semibold rounded-xl transition text-sm mt-2">
+          Entrar al panel
+        </button>
+      </form>
+    </div>
+  </div>
+
+</body>
+</html>

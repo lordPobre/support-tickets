@@ -1,0 +1,312 @@
+from django.shortcuts import render, get_object_or_404, redirect
+from django.contrib.auth.decorators import login_required
+from django.db.models import Sum, Count, Q
+from django.contrib import messages
+from django.utils import timezone
+from .models import Company, Ticket, TicketStatus, TicketPriority
+from .forms import TicketPublicForm, TicketCommentForm, TicketSearchForm
+from django.http import HttpResponse
+from .exports import generate_ticket_pdf, generate_ticket_image
+
+
+# ─────────────────────────────────────────────────────────────
+#  INTERNAL DASHBOARD (requires login)
+# ─────────────────────────────────────────────────────────────
+
+@login_required
+def dashboard(request):
+    tickets = Ticket.objects.select_related("company", "status", "priority")
+    total = tickets.count()
+    open_tickets = tickets.exclude(status__is_closed_state=True).count()
+    billed_total = tickets.filter(is_billed=True).aggregate(s=Sum("assigned_value"))["s"] or 0
+    unbilled_total = (
+        tickets.filter(is_billed=False)
+        .exclude(assigned_value__isnull=True)
+        .aggregate(s=Sum("assigned_value"))["s"] or 0
+    )
+    recent_tickets = tickets.order_by("-created_at")[:10]
+    all_tickets = tickets.order_by("-created_at").select_related("company", "status", "priority")
+    statuses = TicketStatus.objects.annotate(count=Count("tickets"))
+    companies_stats = (
+        Company.objects.filter(is_active=True)
+        .annotate(
+            ticket_count=Count("tickets"),
+            open_count=Count("tickets", filter=Q(tickets__status__is_closed_state=False)),
+            pending_value=Sum("tickets__assigned_value", filter=Q(tickets__is_billed=False)),
+        )
+        .order_by("-ticket_count")[:8]
+    )
+    context = {
+        "total": total,
+        "open_tickets": open_tickets,
+        "billed_total": billed_total,
+        "unbilled_total": unbilled_total,
+        "recent_tickets": recent_tickets,
+        "all_tickets": all_tickets,
+        "statuses": statuses,
+        "companies_stats": companies_stats,
+    }
+    return render(request, "tickets/dashboard.html", context)
+
+
+@login_required
+def ticket_list(request):
+    tickets = Ticket.objects.select_related("company", "status", "priority").order_by("-created_at")
+    company_id = request.GET.get("company")
+    status_id = request.GET.get("status")
+    priority_id = request.GET.get("priority")
+    category = request.GET.get("category")
+    billed = request.GET.get("billed")
+    q = request.GET.get("q", "").strip()
+
+    if company_id:
+        tickets = tickets.filter(company_id=company_id)
+    if status_id:
+        tickets = tickets.filter(status_id=status_id)
+    if priority_id:
+        tickets = tickets.filter(priority_id=priority_id)
+    if category:
+        tickets = tickets.filter(category=category)
+    if billed == "1":
+        tickets = tickets.filter(is_billed=True)
+    elif billed == "0":
+        tickets = tickets.filter(is_billed=False)
+    if q:
+        tickets = tickets.filter(
+            Q(token__icontains=q) | Q(subject__icontains=q) |
+            Q(requester_name__icontains=q) | Q(requester_email__icontains=q)
+        )
+
+    context = {
+        "tickets": tickets,
+        "companies": Company.objects.filter(is_active=True),
+        "statuses": TicketStatus.objects.all(),
+        "priorities": TicketPriority.objects.all(),
+        "category_choices": Ticket.CATEGORY_CHOICES,
+        "filters": {
+            "company": company_id, "status": status_id, "priority": priority_id,
+            "category": category, "billed": billed, "q": q,
+        }
+    }
+    return render(request, "tickets/ticket_list.html", context)
+
+
+@login_required
+def ticket_detail(request, token):
+    ticket = get_object_or_404(Ticket, token=token)
+    comment_form = TicketCommentForm()
+
+    if request.method == "POST":
+        action = request.POST.get("action")
+
+        if action == "comment":
+            comment_form = TicketCommentForm(request.POST)
+            if comment_form.is_valid():
+                comment = comment_form.save(commit=False)
+                comment.ticket = ticket
+                comment.author_name = request.user.get_full_name() or request.user.username
+                comment.author_email = request.user.email
+                comment.is_staff = True
+                comment.is_internal = request.POST.get("is_internal") == "on"
+                comment.save()
+                if not comment.is_internal:
+                    ticket.send_status_update_email("Nueva respuesta de soporte")
+                messages.success(request, "Comentario agregado.")
+                return redirect("ticket_detail", token=token)
+
+        elif action == "update_value":
+            value = request.POST.get("assigned_value", "").strip()
+            try:
+                ticket.assigned_value = float(value) if value else None
+                ticket.save(update_fields=["assigned_value"])
+                messages.success(request, "Valor actualizado.")
+            except ValueError:
+                messages.error(request, "Valor inválido.")
+            return redirect("ticket_detail", token=token)
+
+        elif action == "update_status":
+            status_id = request.POST.get("status_id")
+            try:
+                status = TicketStatus.objects.get(pk=status_id)
+                old_status = ticket.status
+                ticket.status = status
+                if status.is_closed_state and not ticket.closed_at:
+                    ticket.closed_at = timezone.now()
+                ticket.save(update_fields=["status", "closed_at"])
+                if old_status != status:
+                    ticket.send_status_update_email(status.name)
+                messages.success(request, f"Estado cambiado a {status.name}.")
+            except TicketStatus.DoesNotExist:
+                messages.error(request, "Estado no encontrado.")
+            return redirect("ticket_detail", token=token)
+
+        elif action == "toggle_billed":
+            ticket.is_billed = not ticket.is_billed
+            ticket.save(update_fields=["is_billed"])
+            messages.success(request, "Estado de facturación actualizado.")
+            return redirect("ticket_detail", token=token)
+
+    context = {
+        "ticket": ticket,
+        "comment_form": comment_form,
+        "statuses": TicketStatus.objects.all(),
+        "priorities": TicketPriority.objects.all(),
+    }
+    return render(request, "tickets/ticket_detail.html", context)
+
+
+# ─────────────────────────────────────────────────────────────
+#  PUBLIC PORTAL (no login required)
+# ─────────────────────────────────────────────────────────────
+
+CATEGORY_META = {
+    "software": {
+        "icon": "💻", "color": "#6366F1", "bg": "#EEF2FF",
+        "border": "#A5B4FC", "label": "Software",
+        "desc": "Problemas con aplicaciones, sistemas operativos o software",
+    },
+    "hardware": {
+        "icon": "🖥️", "color": "#D97706", "bg": "#FFFBEB",
+        "border": "#FCD34D", "label": "Hardware",
+        "desc": "Fallas en equipos, periféricos o componentes físicos",
+    },
+    "email": {
+        "icon": "✉️", "color": "#059669", "bg": "#ECFDF5",
+        "border": "#6EE7B7", "label": "Email / Correo",
+        "desc": "Configuración, acceso o problemas con correo electrónico",
+    },
+}
+
+
+def portal_home(request, company_slug):
+    company = get_object_or_404(Company, slug=company_slug, is_active=True)
+    has_registered_users = company.users.filter(is_active=True).exists()
+    search_form = TicketSearchForm()
+    create_form = TicketPublicForm(company=company)
+
+    if request.method == "POST":
+        action = request.POST.get("action")
+
+        if action == "search":
+            search_form = TicketSearchForm(request.POST)
+            if search_form.is_valid():
+                token_val = search_form.cleaned_data["token"].strip().upper()
+                try:
+                    ticket = Ticket.objects.get(token=token_val, company=company)
+                    return redirect("portal_ticket", company_slug=company_slug, token=ticket.token)
+                except Ticket.DoesNotExist:
+                    messages.error(request, "No se encontró un ticket con ese código.")
+
+        elif action == "create":
+            create_form = TicketPublicForm(company=company, data=request.POST, files=request.FILES)
+            if create_form.is_valid():
+                default_status = TicketStatus.objects.filter(is_closed_state=False).order_by("order").first()
+                ticket = create_form.save(commit=False)
+                ticket.company = company
+                ticket.status = default_status
+                ticket.save()
+
+                for f in request.FILES.getlist("attachments"):
+                    from .models import TicketAttachment
+                    TicketAttachment.objects.create(ticket=ticket, file=f, original_name=f.name)
+
+                ticket.send_confirmation_email()
+                messages.success(
+                    request,
+                    f"¡Ticket creado! Tu código es <strong>{ticket.token}</strong>. "
+                    f"Recibirás un email de confirmación."
+                )
+                return redirect("portal_ticket", company_slug=company_slug, token=ticket.token)
+
+    # Historial de tickets de la empresa
+    history_qs = company.tickets.select_related("status", "priority").order_by("-created_at")
+    filter_category = request.GET.get("cat", "")
+    filter_status   = request.GET.get("st", "")
+    if filter_category:
+        history_qs = history_qs.filter(category=filter_category)
+    if filter_status:
+        history_qs = history_qs.filter(status__slug=filter_status)
+    company_statuses = TicketStatus.objects.filter(tickets__company=company).distinct()
+
+    context = {
+        "company": company,
+        "has_registered_users": has_registered_users,
+        "search_form": search_form,
+        "create_form": create_form,
+        "priorities": TicketPriority.objects.all(),
+        "category_meta": CATEGORY_META,
+        "history_tickets": history_qs,
+        "company_statuses": company_statuses,
+        "filter_category": filter_category,
+        "filter_status": filter_status,
+    }
+    return render(request, "tickets/portal_home.html", context)
+
+
+def portal_ticket(request, company_slug, token):
+    company = get_object_or_404(Company, slug=company_slug, is_active=True)
+    ticket = get_object_or_404(Ticket, token=token, company=company)
+    comment_form = TicketCommentForm()
+
+    if request.method == "POST":
+        comment_form = TicketCommentForm(request.POST)
+        if comment_form.is_valid():
+            comment = comment_form.save(commit=False)
+            comment.ticket = ticket
+            comment.author_name = ticket.requester_name
+            comment.author_email = ticket.requester_email
+            comment.is_staff = False
+            comment.is_internal = False
+            comment.save()
+            messages.success(request, "Tu mensaje fue enviado.")
+            return redirect("portal_ticket", company_slug=company_slug, token=token)
+
+    public_comments = ticket.comments.filter(is_internal=False).order_by("created_at")
+    context = {
+        "company": company,
+        "ticket": ticket,
+        "comment_form": comment_form,
+        "public_comments": public_comments,
+        "category_meta": CATEGORY_META,
+    }
+    return render(request, "tickets/portal_ticket.html", context)
+
+
+# ─────────────────────────────────────────────────────────────
+#  EXPORT: PDF & IMAGE
+# ─────────────────────────────────────────────────────────────
+
+@login_required
+def ticket_pdf(request, token):
+    ticket = get_object_or_404(Ticket, token=token)
+    buf = generate_ticket_pdf(ticket)
+    response = HttpResponse(buf, content_type="application/pdf")
+    response["Content-Disposition"] = f'attachment; filename="ticket-{ticket.token}.pdf"'
+    return response
+
+
+@login_required
+def ticket_image(request, token):
+    ticket = get_object_or_404(Ticket, token=token)
+    buf = generate_ticket_image(ticket)
+    response = HttpResponse(buf, content_type="image/png")
+    response["Content-Disposition"] = f'attachment; filename="ticket-{ticket.token}.png"'
+    return response
+
+
+def portal_ticket_pdf(request, company_slug, token):
+    company = get_object_or_404(Company, slug=company_slug, is_active=True)
+    ticket = get_object_or_404(Ticket, token=token, company=company)
+    buf = generate_ticket_pdf(ticket)
+    response = HttpResponse(buf, content_type="application/pdf")
+    response["Content-Disposition"] = f'attachment; filename="ticket-{ticket.token}.pdf"'
+    return response
+
+
+def portal_ticket_image(request, company_slug, token):
+    company = get_object_or_404(Company, slug=company_slug, is_active=True)
+    ticket = get_object_or_404(Ticket, token=token, company=company)
+    buf = generate_ticket_image(ticket)
+    response = HttpResponse(buf, content_type="image/png")
+    response["Content-Disposition"] = f'attachment; filename="ticket-{ticket.token}.png"'
+    return response

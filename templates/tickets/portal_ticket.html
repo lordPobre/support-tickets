@@ -1,0 +1,180 @@
+{% extends "base.html" %}
+{% block title %}Ticket {{ ticket.token }} — {{ company.name }}{% endblock %}
+
+{% block layout %}
+<div class="min-h-screen bg-slate-50">
+
+  <!-- Header -->
+  <header class="bg-white border-b border-slate-100 shadow-sm">
+    <div class="max-w-3xl mx-auto px-6 py-4 flex items-center justify-between">
+      <a href="{% url 'portal_home' company.slug %}" class="flex items-center gap-3 hover:opacity-80 transition">
+        {% if company.logo %}
+        <img src="{{ company.logo.url }}" alt="{{ company.name }}" class="h-9 w-auto object-contain" />
+        {% else %}
+        <div class="w-9 h-9 bg-indigo-600 rounded-xl flex items-center justify-center font-bold text-white text-lg">
+          {{ company.name|first|upper }}
+        </div>
+        {% endif %}
+        <div>
+          <p class="font-bold text-slate-900 leading-tight">{{ company.name }}</p>
+          <p class="text-slate-400 text-xs">Portal de Soporte</p>
+        </div>
+      </a>
+      <a href="{% url 'portal_home' company.slug %}"
+         class="flex items-center gap-1.5 text-sm text-indigo-600 hover:text-indigo-700 font-medium transition">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+        Nuevo ticket
+      </a>
+    </div>
+  </header>
+
+  <main class="max-w-3xl mx-auto px-6 py-8 space-y-5">
+
+    <!-- Ticket header card -->
+    <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+      <!-- Badges row -->
+      <div class="flex flex-wrap items-center gap-2 mb-4">
+        <code class="font-mono font-bold text-indigo-600 bg-indigo-50 px-3 py-1 rounded-lg text-sm tracking-wider">
+          {{ ticket.token }}
+        </code>
+
+        {% with meta=category_meta|default:None %}
+        {% if ticket.category == "software" %}
+        <span class="text-xs px-3 py-1 rounded-full font-medium text-white" style="background:#6366F1">💻 Software</span>
+        {% elif ticket.category == "hardware" %}
+        <span class="text-xs px-3 py-1 rounded-full font-medium text-white" style="background:#D97706">🖥️ Hardware</span>
+        {% elif ticket.category == "email" %}
+        <span class="text-xs px-3 py-1 rounded-full font-medium text-white" style="background:#059669">✉️ Email</span>
+        {% endif %}
+        {% endwith %}
+
+        {% if ticket.status %}
+        <span class="text-xs px-3 py-1 rounded-full font-medium text-white"
+              style="background-color:{{ ticket.status.color }}">{{ ticket.status.name }}</span>
+        {% endif %}
+        {% if ticket.priority %}
+        <span class="text-xs px-3 py-1 rounded-full font-medium text-white"
+              style="background-color:{{ ticket.priority.color }}">{{ ticket.priority.name }}</span>
+        {% endif %}
+      </div>
+
+      <h2 class="text-lg font-bold text-slate-900 mb-1">{{ ticket.subject }}</h2>
+      <p class="text-slate-400 text-sm">
+        Enviado por <span class="text-slate-600 font-medium">{{ ticket.requester_name }}</span>
+        el {{ ticket.created_at|date:"d \d\e F \d\e Y" }} a las {{ ticket.created_at|date:"H:i" }}
+      </p>
+
+      <!-- Description -->
+      <div class="mt-5 pt-5 border-t border-slate-100">
+        <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Descripción</p>
+        <p class="text-slate-700 whitespace-pre-wrap leading-relaxed text-sm">{{ ticket.description }}</p>
+      </div>
+
+      {% if ticket.attachments.exists %}
+      <div class="mt-4 pt-4 border-t border-slate-100">
+        <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Adjuntos</p>
+        <div class="flex flex-wrap gap-2">
+          {% for att in ticket.attachments.all %}
+          <a href="{{ att.file.url }}" target="_blank"
+             class="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 hover:bg-slate-100 rounded-lg
+                    text-xs text-slate-600 border border-slate-200 transition">
+            <svg class="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/>
+            </svg>
+            {{ att.original_name }}
+          </a>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Conversation -->
+    {% if public_comments %}
+    <div class="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+      <div class="px-6 py-4 border-b border-slate-100">
+        <h3 class="font-semibold text-slate-800 text-sm">Conversación</h3>
+      </div>
+      <div class="divide-y divide-slate-50">
+        {% for comment in public_comments %}
+        <div class="px-6 py-5">
+          <div class="flex items-center gap-3 mb-2">
+            <div class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0
+              {% if comment.is_staff %}bg-indigo-600 text-white{% else %}bg-slate-200 text-slate-600{% endif %}">
+              {{ comment.author_name|first|upper }}
+            </div>
+            <div class="flex items-center gap-2 flex-wrap">
+              <span class="font-semibold text-slate-800 text-sm">
+                {% if comment.is_staff %}Equipo de Soporte{% else %}{{ comment.author_name }}{% endif %}
+              </span>
+              <span class="text-slate-400 text-xs">{{ comment.created_at|date:"d/m/Y H:i" }}</span>
+            </div>
+          </div>
+          <p class="text-slate-700 text-sm whitespace-pre-wrap leading-relaxed pl-10">{{ comment.message }}</p>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Reply or closed -->
+    {% if not ticket.status.is_closed_state %}
+    <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+      <h3 class="font-semibold text-slate-800 mb-4 text-sm">Agregar respuesta</h3>
+      <form method="post">
+        {% csrf_token %}
+        {{ comment_form.message }}
+        {% if comment_form.message.errors %}
+        <p class="text-red-500 text-xs mt-1">{{ comment_form.message.errors.0 }}</p>
+        {% endif %}
+        <button type="submit"
+          class="mt-4 px-6 py-2.5 bg-indigo-600 text-white font-medium rounded-xl hover:bg-indigo-700 transition text-sm">
+          Enviar mensaje
+        </button>
+      </form>
+    </div>
+    {% else %}
+    <div class="bg-slate-50 rounded-2xl border border-slate-200 p-8 text-center">
+      <div class="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-3">
+        <svg class="w-6 h-6 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+      </div>
+      <p class="text-slate-600 font-medium">Este ticket está cerrado.</p>
+      <a href="{% url 'portal_home' company.slug %}"
+         class="inline-block mt-3 text-indigo-600 text-sm hover:underline font-medium">
+        ¿Tienes otro problema? Crea un nuevo ticket →
+      </a>
+    </div>
+
+    <!-- Download buttons (only when closed/resolved) -->
+    <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+      <h3 class="font-semibold text-slate-800 mb-2 text-sm flex items-center gap-2">
+        <svg class="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+        </svg>
+        Descargar comprobante
+      </h3>
+      <p class="text-slate-400 text-xs mb-5">Descarga el detalle completo de este ticket como PDF o imagen.</p>
+      <div class="flex gap-3 flex-wrap">
+        <a href="{% url 'portal_ticket_pdf' company.slug ticket.token %}"
+           class="flex items-center gap-2 px-5 py-3 bg-red-500 hover:bg-red-600 text-white font-semibold rounded-xl transition text-sm shadow-sm">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+          </svg>
+          Descargar PDF
+        </a>
+        <a href="{% url 'portal_ticket_image' company.slug ticket.token %}"
+           class="flex items-center gap-2 px-5 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl transition text-sm shadow-sm">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+          </svg>
+          Descargar Imagen
+        </a>
+      </div>
+    </div>
+    {% endif %}
+
+  </main>
+</div>
+{% endblock layout %}
