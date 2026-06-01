@@ -95,8 +95,6 @@ MEDIA_ROOT = BASE_DIR / "media"
 # ── Cloudinary (producción) ───────────────────────────────────────────────────
 CLOUDINARY_URL = os.environ.get("CLOUDINARY_URL", "")
 if CLOUDINARY_URL:
-    import cloudinary
-    cloudinary.config(cloudinary_url=CLOUDINARY_URL)
     DEFAULT_FILE_STORAGE = "cloudinary_storage.storage.MediaCloudinaryStorage"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
