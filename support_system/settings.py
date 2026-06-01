@@ -8,7 +8,6 @@ DEBUG = os.environ.get("DEBUG", "False") == "True"
 
 ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
 
-# Railway agrega automáticamente el dominio — lo leemos desde RAILWAY_PUBLIC_DOMAIN
 RAILWAY_HOST = os.environ.get("RAILWAY_PUBLIC_DOMAIN", "")
 if RAILWAY_HOST and RAILWAY_HOST not in ALLOWED_HOSTS:
     ALLOWED_HOSTS.append(RAILWAY_HOST)
@@ -54,8 +53,6 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "support_system.wsgi.application"
 
-# ── Database ──────────────────────────────────────────────────────────────────
-# Railway inyecta DATABASE_URL automáticamente al agregar PostgreSQL
 DATABASE_URL = os.environ.get("DATABASE_URL")
 if DATABASE_URL:
     import dj_database_url
