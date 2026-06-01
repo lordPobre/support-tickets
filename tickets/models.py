@@ -179,7 +179,10 @@ class Ticket(models.Model):
             f"{settings.SITE_URL}/portal/{self.company.slug}/ticket/{self.token}/\n\n"
             f"Gracias,\nEquipo de Soporte"
         )
-        send_mail(subject_line, message, settings.DEFAULT_FROM_EMAIL, [self.requester_email], fail_silently=True)
+        try:
+            send_mail(subject_line, message, settings.DEFAULT_FROM_EMAIL, [self.requester_email], fail_silently=False)
+        except Exception:
+            pass
 
     def send_status_update_email(self, new_status_name):
         subject_line = f"Actualización ticket #{self.token} — {new_status_name}"
@@ -192,7 +195,10 @@ class Ticket(models.Model):
             f"{settings.SITE_URL}/portal/{self.company.slug}/ticket/{self.token}/\n\n"
             f"Gracias,\nEquipo de Soporte"
         )
-        send_mail(subject_line, message, settings.DEFAULT_FROM_EMAIL, [self.requester_email], fail_silently=True)
+        try:
+            send_mail(subject_line, message, settings.DEFAULT_FROM_EMAIL, [self.requester_email], fail_silently=False)
+        except Exception:
+            pass
 
     class Meta:
         verbose_name = "Ticket"
