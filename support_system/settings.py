@@ -8,7 +8,8 @@ DEBUG = os.environ.get("DEBUG", "False") == "True"
 
 ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
 
-# Railway agrega automáticamente el dominio — lo leemos desde RAILWAY_PUBLIC_DOMAIN
+# Railway healthcheck y dominio público
+ALLOWED_HOSTS += ["healthcheck.railway.app", ".railway.app"]
 RAILWAY_HOST = os.environ.get("RAILWAY_PUBLIC_DOMAIN", "")
 if RAILWAY_HOST and RAILWAY_HOST not in ALLOWED_HOSTS:
     ALLOWED_HOSTS.append(RAILWAY_HOST)
