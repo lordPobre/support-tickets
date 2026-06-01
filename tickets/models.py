@@ -181,7 +181,7 @@ class Ticket(models.Model):
         )
         try:
             send_mail(subject_line, message, settings.DEFAULT_FROM_EMAIL, [self.requester_email], fail_silently=False)
-        except Exception:
+        except BaseException:
             pass
 
     def send_status_update_email(self, new_status_name):
@@ -197,7 +197,7 @@ class Ticket(models.Model):
         )
         try:
             send_mail(subject_line, message, settings.DEFAULT_FROM_EMAIL, [self.requester_email], fail_silently=False)
-        except Exception:
+        except BaseException:
             pass
 
     class Meta:
