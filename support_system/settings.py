@@ -92,9 +92,8 @@ STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
-# ── Cloudinary (producción) ───────────────────────────────────────────────────
-CLOUDINARY_URL = os.environ.get("CLOUDINARY_URL", "")
-if CLOUDINARY_URL:
+# ── Cloudinary ────────────────────────────────────────────────────────────────
+if os.environ.get("CLOUDINARY_URL"):
     DEFAULT_FILE_STORAGE = "cloudinary_storage.storage.MediaCloudinaryStorage"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
