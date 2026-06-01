@@ -1,5 +1,5 @@
 [build]
-builder = "NIXPACKS"
+builder = "RAILPACK"
 
 [deploy]
 startCommand = "python manage.py migrate --run-syncdb && python manage.py seed_initial_data && python manage.py create_admin && python manage.py collectstatic --noinput && gunicorn support_system.wsgi --bind 0.0.0.0:$PORT --workers 2 --timeout 120"
