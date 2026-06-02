@@ -166,8 +166,8 @@ class TicketAdmin(admin.ModelAdmin):
     def value_display(self, obj):
         if obj.assigned_value is not None:
             return format_html(
-                '<span style="font-weight:bold;color:#059669;">${:,.0f}</span>',
-                obj.assigned_value
+                '<span style="font-weight:bold;color:#059669;">${}</span>',
+                f"{int(obj.assigned_value):,}".replace(",", ".")
             )
         return format_html('<span style="color:#9CA3AF;">Sin asignar</span>')
 
