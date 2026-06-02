@@ -95,7 +95,7 @@ MEDIA_ROOT = BASE_DIR / "media"
 # ── Cloudinary ────────────────────────────────────────────────────────────────
 if os.environ.get("CLOUDINARY_URL"):
     DEFAULT_FILE_STORAGE = "cloudinary_storage.storage.MediaCloudinaryStorage"
-    MEDIA_URL = "/media/cloudinary/"  # prefix requerido por django-cloudinary-storage
+    CLOUDINARY_STORAGE = {"MEDIA_TAG": "support_tickets"}
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
@@ -125,3 +125,14 @@ if not DEBUG:
         f"https://*.railway.app",
     ]
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
+# CSRF siempre activo (no solo en producción)
+CSRF_TRUSTED_ORIGINS = [
+    "https://*.railway.app",
+    "https://support-tickets-production-61ff.up.railway.app",
+]
+extra_csrf = os.environ.get("CSRF_TRUSTED_ORIGINS", "")
+if extra_csrf:
+    CSRF_TRUSTED_ORIGINS += [o.strip() for o in extra_csrf.split(",") if o.strip()]
+
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
