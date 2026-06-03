@@ -98,10 +98,8 @@ if _cloudinary_url:
     import cloudinary
     cloudinary.config(cloudinary_url=_cloudinary_url)
     DEFAULT_FILE_STORAGE = "cloudinary_storage.storage.MediaCloudinaryStorage"
-    MEDIA_URL = "https://res.cloudinary.com/" + cloudinary.config().cloud_name + "/image/upload/"
     CLOUDINARY_STORAGE = {
         "MEDIA_TAG": "support_tickets",
-        "CLOUDINARY_URL": _cloudinary_url,
     }
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
