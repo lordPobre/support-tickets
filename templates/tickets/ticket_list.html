@@ -9,14 +9,26 @@
       <h1 class="text-2xl font-bold text-slate-900">Tickets</h1>
       <p class="text-slate-500 mt-1">{{ tickets.count }} ticket{{ tickets.count|pluralize:"s" }} encontrado{{ tickets.count|pluralize:"s" }}</p>
     </div>
+    <a href="{% url 'ticket_export_excel' %}?{{ request.GET.urlencode }}"
+       class="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-xl transition shadow-sm">
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+      </svg>
+      Exportar Excel
+    </a>
   </div>
 
   <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 mb-6">
     <form method="get" class="flex flex-wrap gap-3 items-end">
-      <div class="flex-1 min-w-48">
+      <div class="flex-1 min-w-44">
         <label class="block text-xs font-medium text-slate-500 mb-1">Buscar</label>
         <input type="text" name="q" value="{{ filters.q }}" placeholder="Token, asunto, nombre, email..."
           class="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 focus:ring-2 focus:ring-brand-500 focus:border-transparent outline-none" />
+      </div>
+      <div class="min-w-36">
+        <label class="block text-xs font-medium text-slate-500 mb-1">Mes</label>
+        <input type="month" name="month" value="{{ filters.month }}"
+          class="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 focus:ring-2 focus:ring-brand-500 focus:border-transparent outline-none bg-white" />
       </div>
       <div class="min-w-36">
         <label class="block text-xs font-medium text-slate-500 mb-1">Empresa</label>
@@ -24,6 +36,15 @@
           <option value="">Todas</option>
           {% for c in companies %}
           <option value="{{ c.pk }}" {% if filters.company == c.pk|stringformat:"s" %}selected{% endif %}>{{ c.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="min-w-36">
+        <label class="block text-xs font-medium text-slate-500 mb-1">Categoría</label>
+        <select name="category" class="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 focus:ring-2 focus:ring-brand-500 focus:border-transparent outline-none bg-white">
+          <option value="">Todas</option>
+          {% for val, label in category_choices %}
+          <option value="{{ val }}" {% if filters.category == val %}selected{% endif %}>{{ label }}</option>
           {% endfor %}
         </select>
       </div>
@@ -69,6 +90,7 @@
             <th class="text-left px-5 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Empresa</th>
             <th class="text-left px-5 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Asunto</th>
             <th class="text-left px-5 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Solicitante</th>
+            <th class="text-left px-5 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Categoría</th>
             <th class="text-left px-5 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Estado</th>
             <th class="text-left px-5 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Prioridad</th>
             <th class="text-right px-5 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Valor</th>
@@ -82,7 +104,20 @@
             <td class="px-5 py-3">
               <a href="{% url 'ticket_detail' ticket.token %}" class="font-mono text-xs font-semibold text-brand-600 hover:text-brand-800 bg-brand-50 px-2 py-1 rounded">{{ ticket.token }}</a>
             </td>
-            <td class="px-5 py-3 text-sm text-slate-700">{{ ticket.company.name }}</td>
+            <td class="px-5 py-3">
+              {% if ticket.company.logo %}
+              <img src="{{ ticket.company.logo.url }}" alt="{{ ticket.company.name }}"
+                   title="{{ ticket.company.name }}"
+                   class="h-8 w-auto object-contain max-w-24 rounded" />
+              {% else %}
+              <div class="flex items-center gap-2">
+                <div class="w-7 h-7 rounded-lg bg-brand-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                  {{ ticket.company.name|first|upper }}
+                </div>
+                <span class="text-sm text-slate-700 truncate max-w-24">{{ ticket.company.name }}</span>
+              </div>
+              {% endif %}
+            </td>
             <td class="px-5 py-3">
               <a href="{% url 'ticket_detail' ticket.token %}" class="text-sm font-medium text-slate-800 hover:text-brand-600 line-clamp-1">{{ ticket.subject }}</a>
             </td>
@@ -91,13 +126,22 @@
               <p class="text-xs text-slate-400">{{ ticket.requester_email }}</p>
             </td>
             <td class="px-5 py-3">
+              {% if ticket.category == "software" %}
+              <span class="text-xs px-2.5 py-1 rounded-full text-white font-medium" style="background:#6366F1">💻 Software</span>
+              {% elif ticket.category == "hardware" %}
+              <span class="text-xs px-2.5 py-1 rounded-full text-white font-medium" style="background:#D97706">🖥️ Hardware</span>
+              {% elif ticket.category == "email" %}
+              <span class="text-xs px-2.5 py-1 rounded-full text-white font-medium" style="background:#059669">✉️ Email</span>
+              {% endif %}
+            </td>
+            <td class="px-5 py-3">
               {% if ticket.status %}
-              <span class="text-xs px-2.5 py-1 rounded-full text-white font-medium whitespace-nowrap" style="background-color: {{ ticket.status.color }}">{{ ticket.status.name }}</span>
+              <span class="text-xs px-2.5 py-1 rounded-full text-white font-medium whitespace-nowrap" style="background-color:{{ ticket.status.color }}">{{ ticket.status.name }}</span>
               {% else %}—{% endif %}
             </td>
             <td class="px-5 py-3">
               {% if ticket.priority %}
-              <span class="text-xs px-2.5 py-1 rounded-full text-white font-medium" style="background-color: {{ ticket.priority.color }}">{{ ticket.priority.name }}</span>
+              <span class="text-xs px-2.5 py-1 rounded-full text-white font-medium" style="background-color:{{ ticket.priority.color }}">{{ ticket.priority.name }}</span>
               {% else %}—{% endif %}
             </td>
             <td class="px-5 py-3 text-right">
@@ -110,11 +154,11 @@
             <td class="px-5 py-3 text-center">
               {% if ticket.is_billed %}
               <span class="inline-flex items-center justify-center w-6 h-6 bg-emerald-100 rounded-full">
-                <svg class="w-3.5 h-3.5 text-emerald-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" /></svg>
+                <svg class="w-3.5 h-3.5 text-emerald-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
               </span>
               {% else %}
               <span class="inline-flex items-center justify-center w-6 h-6 bg-slate-100 rounded-full">
-                <svg class="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                <svg class="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
               </span>
               {% endif %}
             </td>
@@ -122,9 +166,9 @@
           </tr>
           {% empty %}
           <tr>
-            <td colspan="9" class="px-5 py-16 text-center text-slate-400">
+            <td colspan="10" class="px-5 py-16 text-center text-slate-400">
               <svg class="w-10 h-10 mx-auto mb-3 text-slate-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
               </svg>
               No hay tickets que coincidan con los filtros.
             </td>

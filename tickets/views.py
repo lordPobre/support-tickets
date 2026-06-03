@@ -8,6 +8,7 @@ from .forms import TicketPublicForm, TicketCommentForm, TicketSearchForm
 from django.http import HttpResponse
 from .exports import generate_ticket_pdf, generate_ticket_image
 
+
 @login_required
 def dashboard(request):
     tickets = Ticket.objects.select_related("company", "status", "priority")
@@ -47,12 +48,13 @@ def dashboard(request):
 @login_required
 def ticket_list(request):
     tickets = Ticket.objects.select_related("company", "status", "priority").order_by("-created_at")
-    company_id = request.GET.get("company")
-    status_id = request.GET.get("status")
+    company_id  = request.GET.get("company")
+    status_id   = request.GET.get("status")
     priority_id = request.GET.get("priority")
-    category = request.GET.get("category")
-    billed = request.GET.get("billed")
-    q = request.GET.get("q", "").strip()
+    category    = request.GET.get("category")
+    billed      = request.GET.get("billed")
+    month       = request.GET.get("month", "")
+    q           = request.GET.get("q", "").strip()
 
     if company_id:
         tickets = tickets.filter(company_id=company_id)
@@ -66,6 +68,12 @@ def ticket_list(request):
         tickets = tickets.filter(is_billed=True)
     elif billed == "0":
         tickets = tickets.filter(is_billed=False)
+    if month:
+        try:
+            year, mon = month.split("-")
+            tickets = tickets.filter(created_at__year=int(year), created_at__month=int(mon))
+        except ValueError:
+            pass
     if q:
         tickets = tickets.filter(
             Q(token__icontains=q) | Q(subject__icontains=q) |
@@ -80,7 +88,7 @@ def ticket_list(request):
         "category_choices": Ticket.CATEGORY_CHOICES,
         "filters": {
             "company": company_id, "status": status_id, "priority": priority_id,
-            "category": category, "billed": billed, "q": q,
+            "category": category, "billed": billed, "month": month, "q": q,
         }
     }
     return render(request, "tickets/ticket_list.html", context)
@@ -294,4 +302,194 @@ def portal_ticket_image(request, company_slug, token):
     buf = generate_ticket_image(ticket)
     response = HttpResponse(buf, content_type="image/png")
     response["Content-Disposition"] = f'attachment; filename="ticket-{ticket.token}.png"'
+    return response
+
+
+@login_required
+def ticket_export_excel(request):
+    import io
+    from openpyxl import Workbook
+    from openpyxl.styles import (
+        Font, PatternFill, Alignment, Border, Side, numbers
+    )
+    from openpyxl.utils import get_column_letter
+
+    tickets = Ticket.objects.select_related("company", "status", "priority").order_by("-created_at")
+
+    company_id  = request.GET.get("company")
+    status_id   = request.GET.get("status")
+    priority_id = request.GET.get("priority")
+    category    = request.GET.get("category")
+    billed      = request.GET.get("billed")
+    month       = request.GET.get("month")  
+    q           = request.GET.get("q", "").strip()
+
+    if company_id:
+        tickets = tickets.filter(company_id=company_id)
+    if status_id:
+        tickets = tickets.filter(status_id=status_id)
+    if priority_id:
+        tickets = tickets.filter(priority_id=priority_id)
+    if category:
+        tickets = tickets.filter(category=category)
+    if billed == "1":
+        tickets = tickets.filter(is_billed=True)
+    elif billed == "0":
+        tickets = tickets.filter(is_billed=False)
+    if month:
+        try:
+            year, mon = month.split("-")
+            tickets = tickets.filter(created_at__year=int(year), created_at__month=int(mon))
+        except ValueError:
+            pass
+    if q:
+        tickets = tickets.filter(
+            Q(token__icontains=q) | Q(subject__icontains=q) |
+            Q(requester_name__icontains=q) | Q(requester_email__icontains=q)
+        )
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Tickets"
+
+    INDIGO      = "4F46E5"
+    INDIGO_LIGHT= "EEF2FF"
+    SLATE_100   = "F1F5F9"
+    SLATE_200   = "E2E8F0"
+    WHITE       = "FFFFFF"
+    EMERALD     = "059669"
+    SLATE_700   = "334155"
+
+    header_font  = Font(name="Arial", bold=True, color=WHITE, size=10)
+    header_fill  = PatternFill("solid", fgColor=INDIGO)
+    header_align = Alignment(horizontal="center", vertical="center", wrap_text=True)
+    thin_border  = Border(
+        left=Side(style="thin", color=SLATE_200),
+        right=Side(style="thin", color=SLATE_200),
+        top=Side(style="thin", color=SLATE_200),
+        bottom=Side(style="thin", color=SLATE_200),
+    )
+    cell_align   = Alignment(vertical="center", wrap_text=True)
+    alt_fill     = PatternFill("solid", fgColor=SLATE_100)
+
+    # ── Título ──
+    title_label = "Reporte de Tickets de Soporte"
+    if month:
+        from datetime import datetime
+        try:
+            dt = datetime.strptime(month, "%Y-%m")
+            title_label += f" — {dt.strftime('%B %Y').capitalize()}"
+        except ValueError:
+            pass
+
+    ws.merge_cells("A1:L1")
+    title_cell = ws["A1"]
+    title_cell.value = title_label
+    title_cell.font  = Font(name="Arial", bold=True, color=WHITE, size=13)
+    title_cell.fill  = PatternFill("solid", fgColor=INDIGO)
+    title_cell.alignment = Alignment(horizontal="center", vertical="center")
+    ws.row_dimensions[1].height = 30
+
+    ws.merge_cells("A2:L2")
+    ws["A2"].value = f"Generado el {timezone.now().strftime('%d/%m/%Y %H:%M')}  |  {tickets.count()} tickets"
+    ws["A2"].font  = Font(name="Arial", color=SLATE_700, size=9, italic=True)
+    ws["A2"].fill  = PatternFill("solid", fgColor=INDIGO_LIGHT)
+    ws["A2"].alignment = Alignment(horizontal="center", vertical="center")
+    ws.row_dimensions[2].height = 18
+
+    headers = [
+        "Token", "Empresa", "Solicitante", "Email",
+        "Categoría", "Estado", "Prioridad",
+        "Asunto", "Valor (CLP)", "Facturado",
+        "Fecha Creación", "Fecha Cierre"
+    ]
+    col_widths = [15, 20, 22, 28, 12, 16, 12, 35, 14, 11, 18, 18]
+
+    for col_idx, (header, width) in enumerate(zip(headers, col_widths), 1):
+        cell = ws.cell(row=3, column=col_idx, value=header)
+        cell.font      = header_font
+        cell.fill      = header_fill
+        cell.alignment = header_align
+        cell.border    = thin_border
+        ws.column_dimensions[get_column_letter(col_idx)].width = width
+    ws.row_dimensions[3].height = 22
+
+    CATEGORY_LABELS = {"software": "💻 Software", "hardware": "🖥️ Hardware", "email": "✉️ Email"}
+
+    for row_idx, ticket in enumerate(tickets, 4):
+        is_alt = (row_idx % 2 == 0)
+        row_fill = PatternFill("solid", fgColor=SLATE_100) if is_alt else None
+
+        values = [
+            ticket.token,
+            ticket.company.name,
+            ticket.requester_name,
+            ticket.requester_email,
+            CATEGORY_LABELS.get(ticket.category, ticket.category),
+            ticket.status.name if ticket.status else "—",
+            ticket.priority.name if ticket.priority else "—",
+            ticket.subject,
+            int(ticket.assigned_value) if ticket.assigned_value is not None else "",
+            "Sí" if ticket.is_billed else "No",
+            ticket.created_at.strftime("%d/%m/%Y %H:%M"),
+            ticket.closed_at.strftime("%d/%m/%Y %H:%M") if ticket.closed_at else "—",
+        ]
+
+        for col_idx, value in enumerate(values, 1):
+            cell = ws.cell(row=row_idx, column=col_idx, value=value)
+            cell.font      = Font(name="Arial", size=9)
+            cell.alignment = cell_align
+            cell.border    = thin_border
+            if row_fill:
+                cell.fill = row_fill
+
+            if col_idx == 9 and isinstance(value, int):
+                cell.number_format = '#,##0'
+                cell.font = Font(name="Arial", size=9, color=EMERALD, bold=True)
+
+            if col_idx == 10:
+                cell.font = Font(
+                    name="Arial", size=9,
+                    color=EMERALD if value == "Sí" else "D97706",
+                    bold=True
+                )
+
+        ws.row_dimensions[row_idx].height = 18
+
+    last_data_row = 3 + tickets.count()
+    total_row = last_data_row + 1
+
+    ws.merge_cells(f"A{total_row}:H{total_row}")
+    total_label = ws[f"A{total_row}"]
+    total_label.value = f"TOTAL — {tickets.count()} tickets"
+    total_label.font  = Font(name="Arial", bold=True, size=10, color=WHITE)
+    total_label.fill  = PatternFill("solid", fgColor=INDIGO)
+    total_label.alignment = Alignment(horizontal="right", vertical="center")
+
+    total_value = ws.cell(row=total_row, column=9)
+    total_value.value  = f"=SUM(I4:I{last_data_row})"
+    total_value.font   = Font(name="Arial", bold=True, size=10, color=WHITE)
+    total_value.fill   = PatternFill("solid", fgColor=INDIGO)
+    total_value.number_format = '#,##0'
+    total_value.alignment = Alignment(horizontal="right", vertical="center")
+
+    for col_idx in range(10, 13):
+        cell = ws.cell(row=total_row, column=col_idx)
+        cell.fill = PatternFill("solid", fgColor=INDIGO)
+
+    ws.row_dimensions[total_row].height = 22
+
+    ws.freeze_panes = "A4"
+    ws.auto_filter.ref = f"A3:L{last_data_row}"
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+
+    filename = f"tickets_{month or 'todos'}.xlsx"
+    response = HttpResponse(
+        buf,
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
     return response

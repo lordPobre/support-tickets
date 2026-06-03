@@ -8,3 +8,4 @@ reportlab>=4.0
 cloudinary>=1.36
 django-cloudinary-storage>=0.3.0
 resend>=0.8.0
+openpyxl>=3.1
