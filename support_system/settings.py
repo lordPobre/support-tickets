@@ -104,13 +104,19 @@ EMAIL_BACKEND = os.environ.get(
     "EMAIL_BACKEND",
     "django.core.mail.backends.console.EmailBackend"
 )
-EMAIL_HOST     = os.environ.get("EMAIL_HOST", "smtp.gmail.com")
-EMAIL_PORT     = int(os.environ.get("EMAIL_PORT", 587))
-EMAIL_USE_TLS  = True
-EMAIL_TIMEOUT  = 5  # máximo 5 segundos esperando SMTP
+# Resend (producción via API HTTPS, sin SMTP)
+RESEND_API_KEY  = os.environ.get("RESEND_API_KEY", "")
+if RESEND_API_KEY:
+    EMAIL_BACKEND = "resend.django_backend.EmailBackend"
+
+EMAIL_HOST      = os.environ.get("EMAIL_HOST", "smtp.zoho.com")
+EMAIL_PORT      = int(os.environ.get("EMAIL_PORT", 587))
+EMAIL_USE_TLS   = os.environ.get("EMAIL_USE_TLS", "True") == "True"
+EMAIL_USE_SSL   = os.environ.get("EMAIL_USE_SSL", "False") == "True"
+EMAIL_TIMEOUT   = int(os.environ.get("EMAIL_TIMEOUT", 10))
 EMAIL_HOST_USER     = os.environ.get("EMAIL_HOST_USER", "")
 EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
-DEFAULT_FROM_EMAIL  = os.environ.get("DEFAULT_FROM_EMAIL", "soporte@tudominio.cl")
+DEFAULT_FROM_EMAIL  = os.environ.get("DEFAULT_FROM_EMAIL", "soporte@perseustechnology.dev")
 
 SITE_URL = os.environ.get("SITE_URL", "http://localhost:8000")
 

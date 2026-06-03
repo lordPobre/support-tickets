@@ -7,3 +7,4 @@ dj-database-url>=2.1
 reportlab>=4.0
 cloudinary>=1.36
 django-cloudinary-storage>=0.3.0
+django-resend>=0.4.0
