@@ -167,18 +167,34 @@ class Ticket(models.Model):
         self.save()
 
     def _send_mail_async(self, subject, message, recipients):
-        """Envía el email en un thread para no bloquear el worker."""
+        """Envía el email via Resend API en un thread separado."""
         import threading
         import logging
         logger = logging.getLogger(__name__)
 
         def _send():
-            try:
-                logger.info(f"[EMAIL] Enviando a {recipients} — {subject}")
-                send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, recipients, fail_silently=False)
-                logger.info(f"[EMAIL] Enviado OK a {recipients}")
-            except BaseException as e:
-                logger.error(f"[EMAIL] Error enviando a {recipients}: {type(e).__name__}: {e}")
+            api_key = getattr(settings, "RESEND_API_KEY", "")
+            if api_key:
+                try:
+                    import resend
+                    resend.api_key = api_key
+                    logger.info(f"[EMAIL] Enviando via Resend a {recipients} — {subject}")
+                    resend.Emails.send({
+                        "from": settings.DEFAULT_FROM_EMAIL,
+                        "to": recipients,
+                        "subject": subject,
+                        "text": message,
+                    })
+                    logger.info(f"[EMAIL] Enviado OK via Resend a {recipients}")
+                except BaseException as e:
+                    logger.error(f"[EMAIL] Error Resend a {recipients}: {type(e).__name__}: {e}")
+            else:
+                try:
+                    logger.info(f"[EMAIL] Enviando via SMTP a {recipients} — {subject}")
+                    send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, recipients, fail_silently=False)
+                    logger.info(f"[EMAIL] Enviado OK via SMTP a {recipients}")
+                except BaseException as e:
+                    logger.error(f"[EMAIL] Error SMTP a {recipients}: {type(e).__name__}: {e}")
 
         t = threading.Thread(target=_send, daemon=True)
         t.start()
