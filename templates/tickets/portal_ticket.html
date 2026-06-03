@@ -3,8 +3,6 @@
 
 {% block layout %}
 <div class="min-h-screen bg-slate-50">
-
-  <!-- Header -->
   <header class="bg-white border-b border-slate-100 shadow-sm">
     <div class="max-w-3xl mx-auto px-6 py-4 flex items-center justify-between">
       <a href="{% url 'portal_home' company.slug %}" class="flex items-center gap-3 hover:opacity-80 transition">
@@ -29,10 +27,7 @@
   </header>
 
   <main class="max-w-3xl mx-auto px-6 py-8 space-y-5">
-
-    <!-- Ticket header card -->
     <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
-      <!-- Badges row -->
       <div class="flex flex-wrap items-center gap-2 mb-4">
         <code class="font-mono font-bold text-indigo-600 bg-indigo-50 px-3 py-1 rounded-lg text-sm tracking-wider">
           {{ ticket.token }}
@@ -64,7 +59,6 @@
         el {{ ticket.created_at|date:"d \d\e F \d\e Y" }} a las {{ ticket.created_at|date:"H:i" }}
       </p>
 
-      <!-- Description -->
       <div class="mt-5 pt-5 border-t border-slate-100">
         <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Descripción</p>
         <p class="text-slate-700 whitespace-pre-wrap leading-relaxed text-sm">{{ ticket.description }}</p>
@@ -89,7 +83,6 @@
       {% endif %}
     </div>
 
-    <!-- Conversation -->
     {% if public_comments %}
     <div class="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
       <div class="px-6 py-4 border-b border-slate-100">
@@ -117,7 +110,6 @@
     </div>
     {% endif %}
 
-    <!-- Reply or closed -->
     {% if not ticket.status.is_closed_state %}
     <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
       <h3 class="font-semibold text-slate-800 mb-4 text-sm">Agregar respuesta</h3>
@@ -147,7 +139,6 @@
       </a>
     </div>
 
-    <!-- Download buttons (only when closed/resolved) -->
     <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
       <h3 class="font-semibold text-slate-800 mb-2 text-sm flex items-center gap-2">
         <svg class="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">

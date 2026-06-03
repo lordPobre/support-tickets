@@ -1,4 +1,5 @@
 import os
+import dj_database_url
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -7,8 +8,6 @@ SECRET_KEY = os.environ.get("SECRET_KEY", "django-insecure-change-me-in-producti
 DEBUG = os.environ.get("DEBUG", "False") == "True"
 
 ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
-
-# Railway healthcheck y dominio público
 ALLOWED_HOSTS += ["healthcheck.railway.app", ".railway.app"]
 RAILWAY_HOST = os.environ.get("RAILWAY_PUBLIC_DOMAIN", "")
 if RAILWAY_HOST and RAILWAY_HOST not in ALLOWED_HOSTS:
@@ -57,11 +56,8 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "support_system.wsgi.application"
 
-# ── Database ──────────────────────────────────────────────────────────────────
-# Railway inyecta DATABASE_URL automáticamente al agregar PostgreSQL
 DATABASE_URL = os.environ.get("DATABASE_URL")
 if DATABASE_URL:
-    import dj_database_url
     DATABASES = {"default": dj_database_url.parse(DATABASE_URL, conn_max_age=600)}
 else:
     DATABASES = {
@@ -83,7 +79,6 @@ TIME_ZONE = "America/Santiago"
 USE_I18N = True
 USE_TZ = True
 
-# ── Static & Media ────────────────────────────────────────────────────────────
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 STATICFILES_DIRS = [BASE_DIR / "static"]
@@ -92,27 +87,22 @@ STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
-# ── Cloudinary ────────────────────────────────────────────────────────────────
 if os.environ.get("CLOUDINARY_URL"):
     DEFAULT_FILE_STORAGE = "cloudinary_storage.storage.MediaCloudinaryStorage"
     CLOUDINARY_STORAGE = {"MEDIA_TAG": "support_tickets"}
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-# ── Email ─────────────────────────────────────────────────────────────────────
-# Email via Resend API (no SMTP)
 RESEND_API_KEY     = os.environ.get("RESEND_API_KEY", "")
 DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "soporte@perseustechnology.dev")
 EMAIL_BACKEND      = "django.core.mail.backends.console.EmailBackend"
 
 SITE_URL = os.environ.get("SITE_URL", "http://localhost:8000")
 
-# ── Auth ──────────────────────────────────────────────────────────────────────
 LOGIN_URL          = "/accounts/login/"
 LOGIN_REDIRECT_URL = "/"
 LOGOUT_REDIRECT_URL = "/accounts/login/"
 
-# ── Security (producción) ─────────────────────────────────────────────────────
 if not DEBUG:
     CSRF_TRUSTED_ORIGINS = [
         f"https://{RAILWAY_HOST}",
@@ -120,7 +110,6 @@ if not DEBUG:
     ]
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
-# CSRF siempre activo (no solo en producción)
 CSRF_TRUSTED_ORIGINS = [
     "https://*.railway.app",
     "https://support-tickets-production-61ff.up.railway.app",
@@ -131,7 +120,6 @@ if extra_csrf:
 
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
-# ── Logging ───────────────────────────────────────────────────────────────────
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,

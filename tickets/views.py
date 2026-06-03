@@ -8,11 +8,6 @@ from .forms import TicketPublicForm, TicketCommentForm, TicketSearchForm
 from django.http import HttpResponse
 from .exports import generate_ticket_pdf, generate_ticket_image
 
-
-# ─────────────────────────────────────────────────────────────
-#  INTERNAL DASHBOARD (requires login)
-# ─────────────────────────────────────────────────────────────
-
 @login_required
 def dashboard(request):
     tickets = Ticket.objects.select_related("company", "status", "priority")
@@ -155,10 +150,6 @@ def ticket_detail(request, token):
     return render(request, "tickets/ticket_detail.html", context)
 
 
-# ─────────────────────────────────────────────────────────────
-#  PUBLIC PORTAL (no login required)
-# ─────────────────────────────────────────────────────────────
-
 CATEGORY_META = {
     "software": {
         "icon": "💻", "color": "#6366F1", "bg": "#EEF2FF",
@@ -218,7 +209,6 @@ def portal_home(request, company_slug):
                 )
                 return redirect("portal_ticket", company_slug=company_slug, token=ticket.token)
 
-    # Historial de tickets de la empresa
     history_qs = company.tickets.select_related("status", "priority").order_by("-created_at")
     filter_category = request.GET.get("cat", "")
     filter_status   = request.GET.get("st", "")
@@ -270,11 +260,6 @@ def portal_ticket(request, company_slug, token):
         "category_meta": CATEGORY_META,
     }
     return render(request, "tickets/portal_ticket.html", context)
-
-
-# ─────────────────────────────────────────────────────────────
-#  EXPORT: PDF & IMAGE
-# ─────────────────────────────────────────────────────────────
 
 @login_required
 def ticket_pdf(request, token):

@@ -29,10 +29,8 @@
 <body class="h-full bg-slate-50 font-sans antialiased">
 
 {% block layout %}
-<!-- ── DEFAULT: SIDEBAR LAYOUT (panel interno) ── -->
 <div class="flex h-full min-h-screen">
 
-  <!-- Sidebar -->
   <aside class="w-64 bg-slate-900 text-white flex flex-col flex-shrink-0">
     <div class="px-6 py-5 border-b border-slate-700">
       <div class="flex items-center gap-3">
@@ -100,7 +98,6 @@
     </div>
   </aside>
 
-  <!-- Main content -->
   <main class="flex-1 overflow-auto">
     {% if messages %}
     <div class="px-8 pt-4">

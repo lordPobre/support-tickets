@@ -1,7 +1,5 @@
-"""
-Ticket export utilities: PDF (ReportLab) and PNG image (SVG via reportlab).
-"""
 import io
+from PIL import Image, ImageDraw
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import cm
 from reportlab.lib import colors
@@ -12,8 +10,6 @@ from reportlab.platypus import (
     HRFlowable, KeepTogether
 )
 
-
-# ── Color palette ──────────────────────────────────────────────────────────
 INDIGO      = colors.HexColor("#4F46E5")
 INDIGO_LIGHT= colors.HexColor("#EEF2FF")
 SLATE_900   = colors.HexColor("#0F172A")
@@ -39,7 +35,6 @@ CATEGORY_LABELS = {
 
 
 def _hex_to_rl(hex_str):
-    """Convert hex string to ReportLab color."""
     try:
         return colors.HexColor(hex_str)
     except Exception:
@@ -47,7 +42,6 @@ def _hex_to_rl(hex_str):
 
 
 def generate_ticket_pdf(ticket):
-    """Return a BytesIO with the ticket PDF."""
     buf = io.BytesIO()
     doc = SimpleDocTemplate(
         buf,
@@ -60,7 +54,6 @@ def generate_ticket_pdf(ticket):
 
     styles = getSampleStyleSheet()
 
-    # Custom styles
     title_style = ParagraphStyle(
         "TicketTitle",
         parent=styles["Normal"],
@@ -120,8 +113,6 @@ def generate_ticket_pdf(ticket):
     story = []
     page_w = A4[0] - 4*cm  # usable width
 
-    # ── HEADER BLOCK ──────────────────────────────────────────────────────
-    # Top colored bar
     header_data = [[
         Paragraph(f"<b>TICKET DE SOPORTE</b>", ParagraphStyle(
             "hdr", parent=styles["Normal"],
@@ -146,13 +137,10 @@ def generate_ticket_pdf(ticket):
     ]))
     story.append(header_table)
     story.append(Spacer(1, 16))
-
-    # Token + title
     story.append(Paragraph(f"<font color='#4F46E5'><b># {ticket.token}</b></font>", title_style))
     story.append(Paragraph(ticket.subject, subtitle_style))
     story.append(Spacer(1, 12))
 
-    # ── INFO GRID ──────────────────────────────────────────────────────────
     cat_color  = CATEGORY_COLORS.get(ticket.category, SLATE_500)
     cat_label  = CATEGORY_LABELS.get(ticket.category, ticket.category)
     stat_color = _hex_to_rl(ticket.status.color) if ticket.status else SLATE_500
@@ -219,7 +207,6 @@ def generate_ticket_pdf(ticket):
     story.append(grid_table)
     story.append(Spacer(1, 16))
 
-    # ── BILLING BOX ────────────────────────────────────────────────────────
     if ticket.assigned_value is not None:
         value_clp = f"${int(ticket.assigned_value):,}".replace(",", ".")
         billed_str = "SÍ — Facturado" if ticket.is_billed else "PENDIENTE de facturación"
@@ -247,14 +234,12 @@ def generate_ticket_pdf(ticket):
         story.append(billing_table)
         story.append(Spacer(1, 16))
 
-    # ── DESCRIPTION ────────────────────────────────────────────────────────
     story.append(Paragraph("DESCRIPCIÓN", section_style))
     story.append(HRFlowable(width="100%", thickness=1, color=SLATE_200, spaceAfter=8))
     desc_text = ticket.description.replace("\n", "<br/>")
     story.append(Paragraph(desc_text, desc_style))
     story.append(Spacer(1, 12))
 
-    # ── COMMENTS ───────────────────────────────────────────────────────────
     public_comments = list(ticket.comments.filter(is_internal=False).order_by("created_at"))
     if public_comments:
         story.append(Paragraph("CONVERSACIÓN", section_style))
@@ -286,7 +271,6 @@ def generate_ticket_pdf(ticket):
             story.append(KeepTogether(ct))
             story.append(Spacer(1, 6))
 
-    # ── FOOTER ─────────────────────────────────────────────────────────────
     story.append(Spacer(1, 20))
     story.append(HRFlowable(width="100%", thickness=0.5, color=SLATE_200, spaceAfter=6))
     story.append(Paragraph(
@@ -301,11 +285,8 @@ def generate_ticket_pdf(ticket):
 
 
 def generate_ticket_image(ticket):
-    """Return a BytesIO PNG image using Pillow (works on all platforms)."""
-    from PIL import Image, ImageDraw
-
     W, H = 800, 560
-    SCALE = 2  # retina quality
+    SCALE = 2  
     w, h = W * SCALE, H * SCALE
 
     img = Image.new("RGB", (w, h), "#FFFFFF")
@@ -354,21 +335,17 @@ def generate_ticket_image(ticket):
         ty = y + (h_badge - px(9)) / 2 - 1
         d.text((px(tx), px(ty)), txt, fill=(255, 255, 255), font=font)
 
-    # ── Header bar ────────────────────────────────────────────────────────
     rect(0, 0, W, 52, "#4F46E5")
     text(24, 16, "TICKET DE SOPORTE", 10, "#FFFFFF", bold=True)
     comp = ticket.company.name[:40]
     text(W - len(comp) * 7 - 24, 17, comp, 10, "#C7D2FE")
 
-    # ── Token + Subject ───────────────────────────────────────────────────
     text(24, 66, f"#{ticket.token}", 20, "#4F46E5", bold=True)
     subj = (ticket.subject[:65] + "…") if len(ticket.subject) > 65 else ticket.subject
     text(24, 96, subj, 11, "#334155")
 
-    # Divider
     rect(24, 118, W - 24, 119, "#E2E8F0")
 
-    # ── Info row ─────────────────────────────────────────────────────────
     cols = [
         ("EMPRESA",     ticket.company.name[:28]),
         ("SOLICITANTE", ticket.requester_name[:28]),
@@ -379,7 +356,6 @@ def generate_ticket_image(ticket):
         text(x, 128, lbl, 8, "#94A3B8", bold=True)
         text(x, 142, val, 10, "#0F172A", bold=True)
 
-    # ── Badges row ────────────────────────────────────────────────────────
     cat_label = CATEGORY_LABELS.get(ticket.category, ticket.category)
     cat_hex   = {"software": "#6366F1", "hardware": "#D97706", "email": "#059669"}.get(ticket.category, "#6B7280")
     stat_name = ticket.status.name if ticket.status else "Sin estado"
@@ -391,10 +367,8 @@ def generate_ticket_image(ticket):
     badge(168, 170, stat_name, stat_hex)
     badge(312, 170, prio_name, prio_hex)
 
-    # Divider
     rect(24, 202, W - 24, 203, "#E2E8F0")
 
-    # ── Value block ───────────────────────────────────────────────────────
     y_cur = 212
     if ticket.assigned_value is not None:
         value_str  = f"${int(ticket.assigned_value):,} CLP".replace(",", ".")
@@ -406,7 +380,6 @@ def generate_ticket_image(ticket):
         badge(W - 168, y_cur + 18, billed_str, bill_hex, w_badge=130)
         y_cur += 70
 
-    # ── Dates ─────────────────────────────────────────────────────────────
     created_str = ticket.created_at.strftime("%d/%m/%Y  %H:%M")
     closed_str  = ticket.closed_at.strftime("%d/%m/%Y  %H:%M") if ticket.closed_at else "—"
     text(24,  y_cur,      "CREADO",  8,  "#94A3B8", bold=True)
@@ -415,7 +388,6 @@ def generate_ticket_image(ticket):
     text(220, y_cur + 14, closed_str, 10, "#334155")
     y_cur += 42
 
-    # ── Description preview ───────────────────────────────────────────────
     rect_outline(24, y_cur, W - 24, y_cur + 70, "#F8FAFC", "#E2E8F0", radius=6)
     text(36, y_cur + 8, "DESCRIPCION", 8, "#94A3B8", bold=True)
     desc = ticket.description.replace("\n", " ")
@@ -424,12 +396,10 @@ def generate_ticket_image(ticket):
         text(36, y_cur + 22 + li * 17, line, 9, "#475569")
     y_cur += 82
 
-    # ── Footer ────────────────────────────────────────────────────────────
     rect(0, H - 34, W, H, "#F1F5F9")
     footer = f"SoporteApp  ·  Ticket {ticket.token}  ·  {ticket.company.name}"
     text(W // 2 - len(footer) * 3, H - 22, footer, 8, "#94A3B8")
 
-    # Downscale for anti-aliasing
     img = img.resize((W, H), Image.LANCZOS)
 
     buf = io.BytesIO()

@@ -1,10 +1,8 @@
 from django import forms
 from .models import Ticket, TicketComment, CompanyUser
 
-
 class MultipleFileInput(forms.ClearableFileInput):
     allow_multiple_selected = True
-
 
 class MultipleFileField(forms.FileField):
     def __init__(self, *args, **kwargs):
@@ -19,7 +17,6 @@ class MultipleFileField(forms.FileField):
             result = [single_file_clean(data, initial)]
         return result
 
-
 INPUT_CLASS = (
     "w-full px-4 py-3 rounded-xl border border-slate-200 "
     "focus:ring-2 focus:ring-indigo-500 focus:border-transparent "
@@ -28,10 +25,7 @@ INPUT_CLASS = (
 
 SELECT_CLASS = INPUT_CLASS + " cursor-pointer"
 
-
 class TicketPublicForm(forms.ModelForm):
-    """Form for public portal ticket creation."""
-
     attachments = MultipleFileField(
         required=False,
         label="Archivos adjuntos",
@@ -90,7 +84,6 @@ class TicketPublicForm(forms.ModelForm):
             if users_qs.exists():
                 self.fields["company_user"].empty_label = "— Selecciona tu nombre —"
             else:
-                # No registered users: hide selector, show free-text fields
                 self.fields["company_user"].widget = forms.HiddenInput()
                 self.fields["company_user"].required = False
         else:
@@ -108,7 +101,6 @@ class TicketPublicForm(forms.ModelForm):
         email = cleaned.get("requester_email", "").strip()
 
         if company_user:
-            # Auto-fill from registered user
             cleaned["requester_name"] = company_user.name
             cleaned["requester_email"] = company_user.email
         else:
