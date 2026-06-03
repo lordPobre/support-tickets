@@ -169,11 +169,17 @@ class Ticket(models.Model):
     def _send_mail_async(self, subject, message, recipients):
         """Envía el email en un thread para no bloquear el worker."""
         import threading
+        import logging
+        logger = logging.getLogger(__name__)
+
         def _send():
             try:
+                logger.info(f"[EMAIL] Enviando a {recipients} — {subject}")
                 send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, recipients, fail_silently=False)
-            except BaseException:
-                pass
+                logger.info(f"[EMAIL] Enviado OK a {recipients}")
+            except BaseException as e:
+                logger.error(f"[EMAIL] Error enviando a {recipients}: {type(e).__name__}: {e}")
+
         t = threading.Thread(target=_send, daemon=True)
         t.start()
 
