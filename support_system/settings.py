@@ -20,8 +20,8 @@ INSTALLED_APPS = [
     "django.contrib.contenttypes",
     "django.contrib.sessions",
     "django.contrib.messages",
-    "django.contrib.staticfiles",
     "cloudinary_storage",
+    "django.contrib.staticfiles",
     "cloudinary",
     "tickets",
 ]
@@ -97,7 +97,14 @@ _cloudinary_url = os.environ.get("CLOUDINARY_URL", "").strip()
 if _cloudinary_url:
     import cloudinary
     cloudinary.config(cloudinary_url=_cloudinary_url)
-    DEFAULT_FILE_STORAGE = "cloudinary_storage.storage.MediaCloudinaryStorage"
+    STORAGES = {
+        "default": {
+            "BACKEND": "cloudinary_storage.storage.MediaCloudinaryStorage",
+        },
+        "staticfiles": {
+            "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+        },
+    }
     CLOUDINARY_STORAGE = {
         "MEDIA_TAG": "support_tickets",
     }
