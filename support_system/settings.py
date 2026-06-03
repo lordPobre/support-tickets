@@ -89,6 +89,7 @@ MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
 _cloudinary_url = os.environ.get("CLOUDINARY_URL", "").strip()
+print(f"[CLOUDINARY] URL encontrada: {'SI' if _cloudinary_url else 'NO'}", flush=True)
 if _cloudinary_url:
     import cloudinary
     cloudinary.config(cloudinary_url=_cloudinary_url)
@@ -97,7 +98,10 @@ if _cloudinary_url:
         "MEDIA_TAG": "support_tickets",
         "CLOUDINARY_URL": _cloudinary_url,
     }
-
+    print("[CLOUDINARY] Storage configurado correctamente", flush=True)
+else:
+    print("[CLOUDINARY] ADVERTENCIA: CLOUDINARY_URL no encontrada, usando storage local", flush=True)
+ 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 RESEND_API_KEY     = os.environ.get("RESEND_API_KEY", "")
