@@ -166,9 +166,21 @@ class Ticket(models.Model):
         self.closed_at = timezone.now()
         self.save()
 
+    def _send_mail_async(self, subject, message, recipients):
+        """Envía el email en un thread para no bloquear el worker."""
+        import threading
+        def _send():
+            try:
+                send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, recipients, fail_silently=False)
+            except BaseException:
+                pass
+        t = threading.Thread(target=_send, daemon=True)
+        t.start()
+
     def send_confirmation_email(self):
-        subject_line = f"Ticket #{self.token} recibido — {self.subject}"
-        message = (
+        # Email al cliente
+        subject_cliente = f"Ticket #{self.token} recibido — {self.subject}"
+        message_cliente = (
             f"Hola {self.requester_name},\n\n"
             f"Hemos recibido tu solicitud de soporte.\n\n"
             f"Ticket: #{self.token}\n"
@@ -179,10 +191,23 @@ class Ticket(models.Model):
             f"{settings.SITE_URL}/portal/{self.company.slug}/ticket/{self.token}/\n\n"
             f"Gracias,\nEquipo de Soporte"
         )
-        try:
-            send_mail(subject_line, message, settings.DEFAULT_FROM_EMAIL, [self.requester_email], fail_silently=False)
-        except BaseException:
-            pass
+        self._send_mail_async(subject_cliente, message_cliente, [self.requester_email])
+
+        # Notificación al administrador
+        admin_email = getattr(settings, "ADMIN_NOTIFICATION_EMAIL", settings.DEFAULT_FROM_EMAIL)
+        subject_admin = f"[Nuevo Ticket] #{self.token} — {self.company.name}"
+        message_admin = (
+            f"Se ha recibido un nuevo ticket de soporte.\n\n"
+            f"Token:       #{self.token}\n"
+            f"Empresa:     {self.company.name}\n"
+            f"Solicitante: {self.requester_name} ({self.requester_email})\n"
+            f"Categoría:   {self.get_category_display()}\n"
+            f"Asunto:      {self.subject}\n\n"
+            f"Descripción:\n{self.description}\n\n"
+            f"Ver ticket en el panel:\n"
+            f"{settings.SITE_URL}/tickets/{self.token}/\n"
+        )
+        self._send_mail_async(subject_admin, message_admin, [admin_email])
 
     def send_status_update_email(self, new_status_name):
         subject_line = f"Actualización ticket #{self.token} — {new_status_name}"
@@ -195,10 +220,7 @@ class Ticket(models.Model):
             f"{settings.SITE_URL}/portal/{self.company.slug}/ticket/{self.token}/\n\n"
             f"Gracias,\nEquipo de Soporte"
         )
-        try:
-            send_mail(subject_line, message, settings.DEFAULT_FROM_EMAIL, [self.requester_email], fail_silently=False)
-        except BaseException:
-            pass
+        self._send_mail_async(subject_line, message, [self.requester_email])
 
     class Meta:
         verbose_name = "Ticket"

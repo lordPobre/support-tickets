@@ -9,4 +9,8 @@ urlpatterns = [
     path("accounts/", include("django.contrib.auth.urls")),
     path("health/", lambda request: HttpResponse("ok"), name="health"),
     path("", include("tickets.urls")),
-] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+]
+
+# Solo servir media localmente en desarrollo
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

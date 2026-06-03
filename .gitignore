@@ -31,7 +31,7 @@ local_settings.py
 db.sqlite3
 
 # Environment variables
-.env
+.venv
 .env.local
 .env.production
 
