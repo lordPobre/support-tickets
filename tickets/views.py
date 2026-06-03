@@ -7,7 +7,17 @@ from .models import Company, Ticket, TicketStatus, TicketPriority
 from .forms import TicketPublicForm, TicketCommentForm, TicketSearchForm
 from django.http import HttpResponse
 from .exports import generate_ticket_pdf, generate_ticket_image
+import io
+from openpyxl import Workbook
+from openpyxl.styles import (
+    Font, PatternFill, Alignment, Border, Side, numbers
+)
+from openpyxl.utils import get_column_letter
 
+
+# ─────────────────────────────────────────────────────────────
+#  INTERNAL DASHBOARD (requires login)
+# ─────────────────────────────────────────────────────────────
 
 @login_required
 def dashboard(request):
@@ -53,7 +63,8 @@ def ticket_list(request):
     priority_id = request.GET.get("priority")
     category    = request.GET.get("category")
     billed      = request.GET.get("billed")
-    month       = request.GET.get("month", "")
+    date_from   = request.GET.get("date_from", "")
+    date_to     = request.GET.get("date_to", "")
     q           = request.GET.get("q", "").strip()
 
     if company_id:
@@ -68,12 +79,10 @@ def ticket_list(request):
         tickets = tickets.filter(is_billed=True)
     elif billed == "0":
         tickets = tickets.filter(is_billed=False)
-    if month:
-        try:
-            year, mon = month.split("-")
-            tickets = tickets.filter(created_at__year=int(year), created_at__month=int(mon))
-        except ValueError:
-            pass
+    if date_from:
+        tickets = tickets.filter(created_at__date__gte=date_from)
+    if date_to:
+        tickets = tickets.filter(created_at__date__lte=date_to)
     if q:
         tickets = tickets.filter(
             Q(token__icontains=q) | Q(subject__icontains=q) |
@@ -88,7 +97,8 @@ def ticket_list(request):
         "category_choices": Ticket.CATEGORY_CHOICES,
         "filters": {
             "company": company_id, "status": status_id, "priority": priority_id,
-            "category": category, "billed": billed, "month": month, "q": q,
+            "category": category, "billed": billed,
+            "date_from": date_from, "date_to": date_to, "q": q,
         }
     }
     return render(request, "tickets/ticket_list.html", context)
@@ -304,16 +314,8 @@ def portal_ticket_image(request, company_slug, token):
     response["Content-Disposition"] = f'attachment; filename="ticket-{ticket.token}.png"'
     return response
 
-
 @login_required
 def ticket_export_excel(request):
-    import io
-    from openpyxl import Workbook
-    from openpyxl.styles import (
-        Font, PatternFill, Alignment, Border, Side, numbers
-    )
-    from openpyxl.utils import get_column_letter
-
     tickets = Ticket.objects.select_related("company", "status", "priority").order_by("-created_at")
 
     company_id  = request.GET.get("company")
@@ -321,7 +323,8 @@ def ticket_export_excel(request):
     priority_id = request.GET.get("priority")
     category    = request.GET.get("category")
     billed      = request.GET.get("billed")
-    month       = request.GET.get("month")  
+    date_from   = request.GET.get("date_from", "")
+    date_to     = request.GET.get("date_to", "")
     q           = request.GET.get("q", "").strip()
 
     if company_id:
@@ -336,18 +339,15 @@ def ticket_export_excel(request):
         tickets = tickets.filter(is_billed=True)
     elif billed == "0":
         tickets = tickets.filter(is_billed=False)
-    if month:
-        try:
-            year, mon = month.split("-")
-            tickets = tickets.filter(created_at__year=int(year), created_at__month=int(mon))
-        except ValueError:
-            pass
+    if date_from:
+        tickets = tickets.filter(created_at__date__gte=date_from)
+    if date_to:
+        tickets = tickets.filter(created_at__date__lte=date_to)
     if q:
         tickets = tickets.filter(
             Q(token__icontains=q) | Q(subject__icontains=q) |
             Q(requester_name__icontains=q) | Q(requester_email__icontains=q)
         )
-
     wb = Workbook()
     ws = wb.active
     ws.title = "Tickets"
@@ -374,13 +374,12 @@ def ticket_export_excel(request):
 
     # ── Título ──
     title_label = "Reporte de Tickets de Soporte"
-    if month:
-        from datetime import datetime
-        try:
-            dt = datetime.strptime(month, "%Y-%m")
-            title_label += f" — {dt.strftime('%B %Y').capitalize()}"
-        except ValueError:
-            pass
+    if date_from and date_to:
+        title_label += f" — {date_from} al {date_to}"
+    elif date_from:
+        title_label += f" — desde {date_from}"
+    elif date_to:
+        title_label += f" — hasta {date_to}"
 
     ws.merge_cells("A1:L1")
     title_cell = ws["A1"]
@@ -397,6 +396,7 @@ def ticket_export_excel(request):
     ws["A2"].alignment = Alignment(horizontal="center", vertical="center")
     ws.row_dimensions[2].height = 18
 
+    # ── Encabezados ──
     headers = [
         "Token", "Empresa", "Solicitante", "Email",
         "Categoría", "Estado", "Prioridad",
@@ -414,6 +414,7 @@ def ticket_export_excel(request):
         ws.column_dimensions[get_column_letter(col_idx)].width = width
     ws.row_dimensions[3].height = 22
 
+    # ── Datos ──
     CATEGORY_LABELS = {"software": "💻 Software", "hardware": "🖥️ Hardware", "email": "✉️ Email"}
 
     for row_idx, ticket in enumerate(tickets, 4):
@@ -443,10 +444,12 @@ def ticket_export_excel(request):
             if row_fill:
                 cell.fill = row_fill
 
+            # Formato moneda para valor
             if col_idx == 9 and isinstance(value, int):
                 cell.number_format = '#,##0'
                 cell.font = Font(name="Arial", size=9, color=EMERALD, bold=True)
 
+            # Color facturado
             if col_idx == 10:
                 cell.font = Font(
                     name="Arial", size=9,
@@ -456,6 +459,7 @@ def ticket_export_excel(request):
 
         ws.row_dimensions[row_idx].height = 18
 
+    # ── Fila de totales ──
     last_data_row = 3 + tickets.count()
     total_row = last_data_row + 1
 
@@ -479,14 +483,20 @@ def ticket_export_excel(request):
 
     ws.row_dimensions[total_row].height = 22
 
+    # ── Freeze panes y filtros ──
     ws.freeze_panes = "A4"
     ws.auto_filter.ref = f"A3:L{last_data_row}"
 
+    # ── Respuesta HTTP ──
     buf = io.BytesIO()
     wb.save(buf)
     buf.seek(0)
 
-    filename = f"tickets_{month or 'todos'}.xlsx"
+    if date_from or date_to:
+        rango = f"{date_from or 'inicio'}_{date_to or 'hoy'}"
+        filename = f"tickets_{rango}.xlsx"
+    else:
+        filename = "tickets_todos.xlsx"
     response = HttpResponse(
         buf,
         content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"

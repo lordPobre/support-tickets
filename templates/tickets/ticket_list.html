@@ -18,97 +18,116 @@
     </a>
   </div>
 
+  <!-- Filters -->
   <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 mb-6">
-    <form method="get" class="flex flex-wrap gap-3 items-end">
-      <div class="flex-1 min-w-44">
-        <label class="block text-xs font-medium text-slate-500 mb-1">Buscar</label>
-        <input type="text" name="q" value="{{ filters.q }}" placeholder="Token, asunto, nombre, email..."
-          class="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 focus:ring-2 focus:ring-brand-500 focus:border-transparent outline-none" />
+    <form method="get" class="space-y-3">
+      <!-- Fila 1 -->
+      <div class="flex flex-wrap gap-3 items-end">
+        <div class="flex-1 min-w-44">
+          <label class="block text-xs font-medium text-slate-500 mb-1">Buscar</label>
+          <input type="text" name="q" value="{{ filters.q }}" placeholder="Token, asunto, nombre, email..."
+            class="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 focus:ring-2 focus:ring-brand-500 focus:border-transparent outline-none" />
+        </div>
+        <div class="min-w-36">
+          <label class="block text-xs font-medium text-slate-500 mb-1">Empresa</label>
+          <select name="company" class="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 focus:ring-2 focus:ring-brand-500 focus:border-transparent outline-none bg-white">
+            <option value="">Todas</option>
+            {% for c in companies %}
+            <option value="{{ c.pk }}" {% if filters.company == c.pk|stringformat:"s" %}selected{% endif %}>{{ c.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="min-w-36">
+          <label class="block text-xs font-medium text-slate-500 mb-1">Categoría</label>
+          <select name="category" class="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 focus:ring-2 focus:ring-brand-500 focus:border-transparent outline-none bg-white">
+            <option value="">Todas</option>
+            {% for val, label in category_choices %}
+            <option value="{{ val }}" {% if filters.category == val %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="min-w-36">
+          <label class="block text-xs font-medium text-slate-500 mb-1">Estado</label>
+          <select name="status" class="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 focus:ring-2 focus:ring-brand-500 focus:border-transparent outline-none bg-white">
+            <option value="">Todos</option>
+            {% for s in statuses %}
+            <option value="{{ s.pk }}" {% if filters.status == s.pk|stringformat:"s" %}selected{% endif %}>{{ s.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="min-w-36">
+          <label class="block text-xs font-medium text-slate-500 mb-1">Prioridad</label>
+          <select name="priority" class="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 focus:ring-2 focus:ring-brand-500 focus:border-transparent outline-none bg-white">
+            <option value="">Todas</option>
+            {% for p in priorities %}
+            <option value="{{ p.pk }}" {% if filters.priority == p.pk|stringformat:"s" %}selected{% endif %}>{{ p.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="min-w-32">
+          <label class="block text-xs font-medium text-slate-500 mb-1">Facturado</label>
+          <select name="billed" class="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 focus:ring-2 focus:ring-brand-500 focus:border-transparent outline-none bg-white">
+            <option value="">Todos</option>
+            <option value="1" {% if filters.billed == "1" %}selected{% endif %}>Sí</option>
+            <option value="0" {% if filters.billed == "0" %}selected{% endif %}>No</option>
+          </select>
+        </div>
       </div>
-      <div class="min-w-36">
-        <label class="block text-xs font-medium text-slate-500 mb-1">Mes</label>
-        <input type="month" name="month" value="{{ filters.month }}"
-          class="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 focus:ring-2 focus:ring-brand-500 focus:border-transparent outline-none bg-white" />
-      </div>
-      <div class="min-w-36">
-        <label class="block text-xs font-medium text-slate-500 mb-1">Empresa</label>
-        <select name="company" class="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 focus:ring-2 focus:ring-brand-500 focus:border-transparent outline-none bg-white">
-          <option value="">Todas</option>
-          {% for c in companies %}
-          <option value="{{ c.pk }}" {% if filters.company == c.pk|stringformat:"s" %}selected{% endif %}>{{ c.name }}</option>
-          {% endfor %}
-        </select>
-      </div>
-      <div class="min-w-36">
-        <label class="block text-xs font-medium text-slate-500 mb-1">Categoría</label>
-        <select name="category" class="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 focus:ring-2 focus:ring-brand-500 focus:border-transparent outline-none bg-white">
-          <option value="">Todas</option>
-          {% for val, label in category_choices %}
-          <option value="{{ val }}" {% if filters.category == val %}selected{% endif %}>{{ label }}</option>
-          {% endfor %}
-        </select>
-      </div>
-      <div class="min-w-36">
-        <label class="block text-xs font-medium text-slate-500 mb-1">Estado</label>
-        <select name="status" class="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 focus:ring-2 focus:ring-brand-500 focus:border-transparent outline-none bg-white">
-          <option value="">Todos</option>
-          {% for s in statuses %}
-          <option value="{{ s.pk }}" {% if filters.status == s.pk|stringformat:"s" %}selected{% endif %}>{{ s.name }}</option>
-          {% endfor %}
-        </select>
-      </div>
-      <div class="min-w-36">
-        <label class="block text-xs font-medium text-slate-500 mb-1">Prioridad</label>
-        <select name="priority" class="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 focus:ring-2 focus:ring-brand-500 focus:border-transparent outline-none bg-white">
-          <option value="">Todas</option>
-          {% for p in priorities %}
-          <option value="{{ p.pk }}" {% if filters.priority == p.pk|stringformat:"s" %}selected{% endif %}>{{ p.name }}</option>
-          {% endfor %}
-        </select>
-      </div>
-      <div class="min-w-32">
-        <label class="block text-xs font-medium text-slate-500 mb-1">Facturado</label>
-        <select name="billed" class="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 focus:ring-2 focus:ring-brand-500 focus:border-transparent outline-none bg-white">
-          <option value="">Todos</option>
-          <option value="1" {% if filters.billed == "1" %}selected{% endif %}>Sí</option>
-          <option value="0" {% if filters.billed == "0" %}selected{% endif %}>No</option>
-        </select>
-      </div>
-      <div class="flex gap-2">
-        <button type="submit" class="px-4 py-2 bg-brand-600 text-white text-sm font-medium rounded-lg hover:bg-brand-700 transition">Filtrar</button>
-        <a href="{% url 'ticket_list' %}" class="px-4 py-2 bg-slate-100 text-slate-600 text-sm font-medium rounded-lg hover:bg-slate-200 transition">Limpiar</a>
+      <!-- Fila 2: rango de fechas -->
+      <div class="flex flex-wrap gap-3 items-end">
+        <div class="flex items-end gap-2">
+          <div>
+            <label class="block text-xs font-medium text-slate-500 mb-1">Desde</label>
+            <input type="date" name="date_from" value="{{ filters.date_from }}"
+              class="px-3 py-2 text-sm rounded-lg border border-slate-200 focus:ring-2 focus:ring-brand-500 focus:border-transparent outline-none bg-white" />
+          </div>
+          <span class="text-slate-400 text-sm pb-2">—</span>
+          <div>
+            <label class="block text-xs font-medium text-slate-500 mb-1">Hasta</label>
+            <input type="date" name="date_to" value="{{ filters.date_to }}"
+              class="px-3 py-2 text-sm rounded-lg border border-slate-200 focus:ring-2 focus:ring-brand-500 focus:border-transparent outline-none bg-white" />
+          </div>
+        </div>
+        <div class="flex gap-2 pb-0.5">
+          <button type="submit" class="px-4 py-2 bg-brand-600 text-white text-sm font-medium rounded-lg hover:bg-brand-700 transition">Filtrar</button>
+          <a href="{% url 'ticket_list' %}" class="px-4 py-2 bg-slate-100 text-slate-600 text-sm font-medium rounded-lg hover:bg-slate-200 transition">Limpiar</a>
+        </div>
       </div>
     </form>
   </div>
 
+  <!-- Table -->
   <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
     <div class="overflow-x-auto">
       <table class="w-full">
         <thead>
-          <tr class="border-b border-slate-100">
-            <th class="text-left px-5 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Token</th>
-            <th class="text-left px-5 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Empresa</th>
-            <th class="text-left px-5 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Asunto</th>
-            <th class="text-left px-5 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Solicitante</th>
-            <th class="text-left px-5 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Categoría</th>
-            <th class="text-left px-5 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Estado</th>
-            <th class="text-left px-5 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Prioridad</th>
-            <th class="text-right px-5 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Valor</th>
-            <th class="text-center px-5 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Facturado</th>
-            <th class="text-left px-5 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Fecha</th>
+          <tr class="border-b border-slate-100 bg-slate-50">
+            <th class="text-left px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Token</th>
+            <th class="text-left px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Empresa</th>
+            <th class="text-left px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Asunto</th>
+            <th class="text-left px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Solicitante</th>
+            <th class="text-left px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Categoría</th>
+            <th class="text-left px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Estado</th>
+            <th class="text-left px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Prioridad</th>
+            <th class="text-right px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Valor</th>
+            <th class="text-center px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Fact.</th>
+            <th class="text-left px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Fecha</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-slate-50">
           {% for ticket in tickets %}
           <tr class="hover:bg-slate-50 transition">
-            <td class="px-5 py-3">
-              <a href="{% url 'ticket_detail' ticket.token %}" class="font-mono text-xs font-semibold text-brand-600 hover:text-brand-800 bg-brand-50 px-2 py-1 rounded">{{ ticket.token }}</a>
+            <td class="px-4 py-3">
+              <a href="{% url 'ticket_detail' ticket.token %}"
+                 class="font-mono text-xs font-semibold text-brand-600 hover:text-brand-800 bg-brand-50 px-2 py-1 rounded">
+                {{ ticket.token }}
+              </a>
             </td>
-            <td class="px-5 py-3">
+            <td class="px-4 py-3">
               {% if ticket.company.logo %}
               <img src="{{ ticket.company.logo.url }}" alt="{{ ticket.company.name }}"
                    title="{{ ticket.company.name }}"
-                   class="h-8 w-auto object-contain max-w-24 rounded" />
+                   class="h-8 w-auto object-contain max-w-28 rounded" />
               {% else %}
               <div class="flex items-center gap-2">
                 <div class="w-7 h-7 rounded-lg bg-brand-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
@@ -118,51 +137,64 @@
               </div>
               {% endif %}
             </td>
-            <td class="px-5 py-3">
-              <a href="{% url 'ticket_detail' ticket.token %}" class="text-sm font-medium text-slate-800 hover:text-brand-600 line-clamp-1">{{ ticket.subject }}</a>
+            <td class="px-4 py-3 max-w-xs">
+              <a href="{% url 'ticket_detail' ticket.token %}"
+                 class="text-sm font-medium text-slate-800 hover:text-brand-600 block truncate">
+                {{ ticket.subject }}
+              </a>
             </td>
-            <td class="px-5 py-3">
-              <p class="text-sm text-slate-700">{{ ticket.requester_name }}</p>
-              <p class="text-xs text-slate-400">{{ ticket.requester_email }}</p>
+            <td class="px-4 py-3">
+              <p class="text-sm text-slate-700 whitespace-nowrap">{{ ticket.requester_name }}</p>
+              <p class="text-xs text-slate-400 truncate max-w-40">{{ ticket.requester_email }}</p>
             </td>
-            <td class="px-5 py-3">
+            <td class="px-4 py-3 whitespace-nowrap">
               {% if ticket.category == "software" %}
-              <span class="text-xs px-2.5 py-1 rounded-full text-white font-medium" style="background:#6366F1">💻 Software</span>
+              <span class="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full text-white font-medium" style="background:#6366F1">
+                <span>💻</span> Software
+              </span>
               {% elif ticket.category == "hardware" %}
-              <span class="text-xs px-2.5 py-1 rounded-full text-white font-medium" style="background:#D97706">🖥️ Hardware</span>
+              <span class="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full text-white font-medium" style="background:#D97706">
+                <span>🖥️</span> Hardware
+              </span>
               {% elif ticket.category == "email" %}
-              <span class="text-xs px-2.5 py-1 rounded-full text-white font-medium" style="background:#059669">✉️ Email</span>
+              <span class="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full text-white font-medium" style="background:#059669">
+                <span>✉️</span> Email
+              </span>
               {% endif %}
             </td>
-            <td class="px-5 py-3">
+            <td class="px-4 py-3 whitespace-nowrap">
               {% if ticket.status %}
-              <span class="text-xs px-2.5 py-1 rounded-full text-white font-medium whitespace-nowrap" style="background-color:{{ ticket.status.color }}">{{ ticket.status.name }}</span>
+              <span class="text-xs px-2 py-1 rounded-full text-white font-medium" style="background-color:{{ ticket.status.color }}">{{ ticket.status.name }}</span>
               {% else %}—{% endif %}
             </td>
-            <td class="px-5 py-3">
+            <td class="px-4 py-3 whitespace-nowrap">
               {% if ticket.priority %}
-              <span class="text-xs px-2.5 py-1 rounded-full text-white font-medium" style="background-color:{{ ticket.priority.color }}">{{ ticket.priority.name }}</span>
+              <span class="text-xs px-2 py-1 rounded-full text-white font-medium" style="background-color:{{ ticket.priority.color }}">{{ ticket.priority.name }}</span>
               {% else %}—{% endif %}
             </td>
-            <td class="px-5 py-3 text-right">
+            <td class="px-4 py-3 text-right whitespace-nowrap">
               {% if ticket.assigned_value %}
               <span class="text-sm font-semibold text-emerald-600">${{ ticket.assigned_value|floatformat:0 }}</span>
               {% else %}
               <span class="text-slate-300 text-sm">—</span>
               {% endif %}
             </td>
-            <td class="px-5 py-3 text-center">
+            <td class="px-4 py-3 text-center">
               {% if ticket.is_billed %}
               <span class="inline-flex items-center justify-center w-6 h-6 bg-emerald-100 rounded-full">
-                <svg class="w-3.5 h-3.5 text-emerald-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                <svg class="w-3.5 h-3.5 text-emerald-600" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                </svg>
               </span>
               {% else %}
               <span class="inline-flex items-center justify-center w-6 h-6 bg-slate-100 rounded-full">
-                <svg class="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                <svg class="w-3.5 h-3.5 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
               </span>
               {% endif %}
             </td>
-            <td class="px-5 py-3 text-sm text-slate-400 whitespace-nowrap">{{ ticket.created_at|date:"d/m/Y H:i" }}</td>
+            <td class="px-4 py-3 text-sm text-slate-400 whitespace-nowrap">{{ ticket.created_at|date:"d/m/Y H:i" }}</td>
           </tr>
           {% empty %}
           <tr>
