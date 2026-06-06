@@ -39,7 +39,17 @@ class CompanyUser(models.Model):
     is_active = models.BooleanField(default=True, verbose_name="Activo")
     is_manager = models.BooleanField(default=False, verbose_name="Es jefatura",
                                        help_text="Puede acceder al inventario de equipos en el portal")
+    password = models.CharField(max_length=128, blank=True, verbose_name="Contraseña del portal",
+                                help_text="Contraseña para acceder al inventario desde el portal")
     created_at = models.DateTimeField(auto_now_add=True)
+
+    def set_portal_password(self, raw_password):
+        from django.contrib.auth.hashers import make_password
+        self.password = make_password(raw_password)
+
+    def check_portal_password(self, raw_password):
+        from django.contrib.auth.hashers import check_password
+        return check_password(raw_password, self.password)
 
     def __str__(self):
         return f"{self.name} ({self.company.name})"

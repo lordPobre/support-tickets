@@ -1,4 +1,5 @@
 from django.contrib import admin
+from django import forms
 from django.utils.html import format_html
 from django.db.models import Sum, Count
 from .models import Company, CompanyUser, Ticket, TicketStatus, TicketPriority, TicketAttachment, TicketComment, Equipment
@@ -57,12 +58,47 @@ class CompanyAdmin(admin.ModelAdmin):
         )
 
 
+class CompanyUserForm(forms.ModelForm):
+    raw_password = forms.CharField(
+        label="Nueva contraseña del portal",
+        required=False,
+        widget=forms.PasswordInput(render_value=False),
+        help_text="Escribe una nueva contraseña para cambiarla. Deja en blanco para mantener la actual."
+    )
+
+    class Meta:
+        model = CompanyUser
+        fields = "__all__"
+
+    def save(self, commit=True):
+        user = super().save(commit=False)
+        raw = self.cleaned_data.get("raw_password", "").strip()
+        if raw:
+            user.set_portal_password(raw)
+        if commit:
+            user.save()
+        return user
+
+
 @admin.register(CompanyUser)
 class CompanyUserAdmin(admin.ModelAdmin):
-    list_display = ("name", "company", "email", "position", "is_manager", "tickets_count", "is_active")
-    list_filter = ("company", "is_active", "is_manager")
+    form = CompanyUserForm
+    list_display  = ("name", "company", "email", "position", "is_manager", "has_password", "tickets_count", "is_active")
+    list_filter   = ("company", "is_active", "is_manager")
     search_fields = ("name", "email", "company__name")
     readonly_fields = ("created_at",)
+    fieldsets = (
+        ("Información", {"fields": ("company", "name", "email", "position")}),
+        ("Acceso al Portal", {
+            "fields": ("is_active", "is_manager", "raw_password"),
+            "description": "Configura el acceso al inventario del portal público.",
+        }),
+        ("Fechas", {"fields": ("created_at",), "classes": ("collapse",)}),
+    )
+
+    @admin.display(description="🔑 Clave", boolean=True)
+    def has_password(self, obj):
+        return bool(obj.password)
 
     @admin.display(description="Tickets")
     def tickets_count(self, obj):

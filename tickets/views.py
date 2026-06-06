@@ -657,14 +657,19 @@ def portal_login(request, company_slug):
     error = None
 
     if request.method == "POST":
-        email = request.POST.get("email", "").strip().lower()
+        email    = request.POST.get("email", "").strip().lower()
+        password = request.POST.get("password", "")
         from .models import CompanyUser
         try:
             user = CompanyUser.objects.get(
                 company=company, email__iexact=email, is_active=True
             )
             if not user.is_manager:
-                error = "Tu usuario no tiene acceso al inventario. Contacta a tu administrador."
+                error = "Tu usuario no tiene permisos para acceder al inventario."
+            elif not user.password:
+                error = "Este usuario no tiene contraseña configurada. Contacta al administrador."
+            elif not user.check_portal_password(password):
+                error = "Contraseña incorrecta."
             else:
                 request.session[_portal_session_key(company_slug)] = {
                     "user_id": user.pk,
