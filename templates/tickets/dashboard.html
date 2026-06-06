@@ -2,13 +2,16 @@
 {% block title %}Dashboard — Soporte{% endblock %}
 
 {% block content %}
-<div class="px-8 py-6">
-  <div class="mb-8">
+<div class="px-4 lg:px-8 py-4 lg:py-6">
+
+  <!-- Header -->
+  <div class="mb-6">
     <h1 class="text-2xl font-bold text-slate-900">Dashboard</h1>
     <p class="text-slate-500 mt-1">Resumen general del sistema de soporte</p>
   </div>
 
-  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
+  <!-- KPI Cards -->
+  <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-5 mb-6">
     <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
       <div class="flex items-center justify-between mb-3">
         <span class="text-slate-500 text-sm font-medium">Total Tickets</span>
@@ -18,7 +21,7 @@
           </svg>
         </div>
       </div>
-      <p class="text-3xl font-bold text-slate-900">{{ total }}</p>
+      <p class="text-2xl lg:text-3xl font-bold text-slate-900">{{ total }}</p>
     </div>
 
     <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
@@ -30,7 +33,7 @@
           </svg>
         </div>
       </div>
-      <p class="text-3xl font-bold text-amber-600">{{ open_tickets }}</p>
+      <p class="text-2xl lg:text-3xl font-bold text-amber-600">{{ open_tickets }}</p>
     </div>
 
     <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
@@ -42,7 +45,7 @@
           </svg>
         </div>
       </div>
-      <p class="text-3xl font-bold text-emerald-600">${{ billed_total|floatformat:0 }}</p>
+      <p class="text-2xl lg:text-3xl font-bold text-emerald-600">${{ billed_total|floatformat:0 }}</p>
       <p class="text-xs text-slate-400 mt-1">CLP</p>
     </div>
 
@@ -55,12 +58,15 @@
           </svg>
         </div>
       </div>
-      <p class="text-3xl font-bold text-brand-600">${{ unbilled_total|floatformat:0 }}</p>
+      <p class="text-2xl lg:text-3xl font-bold text-brand-600">${{ unbilled_total|floatformat:0 }}</p>
       <p class="text-xs text-slate-400 mt-1">CLP pendiente</p>
     </div>
   </div>
 
-  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+  <!-- Top row: recent + sidebar -->
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6 mb-6">
+
+    <!-- Recent tickets -->
     <div class="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
       <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
         <h2 class="font-semibold text-slate-800">Tickets Recientes</h2>
@@ -97,7 +103,9 @@
       </div>
     </div>
 
+    <!-- Right column -->
     <div class="space-y-6">
+      <!-- By status -->
       <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
         <h2 class="font-semibold text-slate-800 mb-4">Por Estado</h2>
         <div class="space-y-3">
@@ -110,6 +118,8 @@
           {% endfor %}
         </div>
       </div>
+
+      <!-- Companies summary -->
       <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
         <h2 class="font-semibold text-slate-800 mb-4">Empresas</h2>
         <div class="space-y-3">
@@ -133,7 +143,10 @@
     </div>
   </div>
 
+  <!-- ── HISTORIAL DE TICKETS POR EMPRESA ── -->
   <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+
+    <!-- Header with company filter tabs -->
     <div class="px-6 py-4 border-b border-slate-100">
       <div class="flex items-center justify-between mb-3">
         <h2 class="font-semibold text-slate-800 flex items-center gap-2">
@@ -145,6 +158,7 @@
         <span id="history-count" class="text-xs text-slate-400 font-medium"></span>
       </div>
 
+      <!-- Company filter tabs -->
       <div class="flex gap-2 flex-wrap" id="company-tabs">
         <button onclick="filterHistory('all')" data-slug="all"
           class="company-tab px-3 py-1.5 rounded-lg text-xs font-medium transition bg-brand-600 text-white">
@@ -160,6 +174,7 @@
       </div>
     </div>
 
+    <!-- Tickets table -->
     <div class="overflow-x-auto">
       <table class="w-full" id="history-table">
         <thead>
@@ -240,6 +255,8 @@
         </tbody>
       </table>
     </div>
+
+    <!-- Table footer with total -->
     <div class="px-6 py-3 border-t border-slate-100 bg-slate-50 flex items-center justify-between">
       <span class="text-xs text-slate-400" id="history-footer">
         {{ all_tickets|length }} ticket{{ all_tickets|length|pluralize:"s" }} en total

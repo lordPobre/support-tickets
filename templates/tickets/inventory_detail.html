@@ -1,0 +1,166 @@
+{% extends "base.html" %}
+{% block title %}{{ equipment.brand }} {{ equipment.model }} — Inventario{% endblock %}
+
+{% block content %}
+<div class="px-4 lg:px-8 py-4 lg:py-6">
+
+  <!-- Header -->
+  <div class="flex items-center gap-3 mb-6">
+    <a href="{% url 'inventory_list' %}" class="text-slate-400 hover:text-slate-600 transition">
+      <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+      </svg>
+    </a>
+    <div class="flex-1">
+      <h1 class="text-xl font-bold text-slate-900">{{ equipment.brand }} {{ equipment.model }}</h1>
+      <p class="text-slate-500 text-sm">{{ equipment.get_device_type_display }} · {{ equipment.company.name }}</p>
+    </div>
+    <a href="{% url 'inventory_edit' equipment.pk %}"
+       class="flex items-center gap-2 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 text-sm font-medium rounded-lg transition">
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+      </svg>
+      Editar
+    </a>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+
+    <!-- Info principal -->
+    <div class="lg:col-span-2 space-y-5">
+
+      <!-- Card principal -->
+      <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+        <div class="flex items-start gap-5">
+          {% if equipment.image %}
+          <img src="{{ equipment.image.url }}" alt="{{ equipment.brand }} {{ equipment.model }}"
+               class="w-24 h-24 object-contain rounded-xl border border-slate-100 flex-shrink-0" />
+          {% else %}
+          <div class="w-24 h-24 rounded-xl border border-slate-100 flex items-center justify-center text-4xl flex-shrink-0 bg-slate-50">
+            {% if equipment.device_type == 'laptop' %}💻
+            {% elif equipment.device_type == 'desktop' %}🖥️
+            {% elif equipment.device_type == 'server' %}🗄️
+            {% elif equipment.device_type == 'printer' %}🖨️
+            {% elif equipment.device_type == 'monitor' %}🖵
+            {% elif equipment.device_type == 'switch' %}🔀
+            {% else %}📦{% endif %}
+          </div>
+          {% endif %}
+
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-3 flex-wrap mb-2">
+              <span class="text-sm px-3 py-1 rounded-full text-white font-medium
+                {% if equipment.status == 'active' %}bg-emerald-500
+                {% elif equipment.status == 'maintenance' %}bg-amber-500
+                {% elif equipment.status == 'retired' %}bg-red-500
+                {% else %}bg-slate-400{% endif %}">
+                {{ equipment.get_status_display }}
+              </span>
+              <span class="text-xs text-slate-400 bg-slate-100 px-2 py-1 rounded-lg">
+                {{ equipment.get_device_type_display }}
+              </span>
+            </div>
+            <h2 class="text-lg font-bold text-slate-900">{{ equipment.brand }} {{ equipment.model }}</h2>
+            <p class="text-slate-400 text-sm mt-1">Adquirido en {{ equipment.year }}</p>
+          </div>
+        </div>
+
+        <!-- Grid de datos -->
+        <div class="grid grid-cols-2 gap-4 mt-6 pt-5 border-t border-slate-100">
+          <div>
+            <p class="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Número de serie</p>
+            <p class="font-mono font-semibold text-slate-800 text-sm">{{ equipment.serial_number }}</p>
+          </div>
+          <div>
+            <p class="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Empresa</p>
+            <div class="flex items-center gap-2">
+              {% if equipment.company.logo %}
+              <img src="{{ equipment.company.logo.url }}" alt="" class="h-5 w-auto object-contain max-w-16 rounded" />
+              {% endif %}
+              <span class="text-sm font-medium text-slate-800">{{ equipment.company.name }}</span>
+            </div>
+          </div>
+          <div>
+            <p class="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Asignado a</p>
+            {% if equipment.assigned_to %}
+            <p class="text-sm font-medium text-slate-800">{{ equipment.assigned_to.name }}</p>
+            <p class="text-xs text-slate-400">{{ equipment.assigned_to.email }}</p>
+            {% else %}
+            <p class="text-sm text-slate-400">Sin asignar</p>
+            {% endif %}
+          </div>
+          <div>
+            <p class="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Registrado</p>
+            <p class="text-sm text-slate-800">{{ equipment.created_at|date:"d/m/Y" }}</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Especificaciones -->
+      {% if equipment.specs %}
+      <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+        <h3 class="font-semibold text-slate-800 mb-3 text-sm uppercase tracking-wide text-slate-400">Especificaciones técnicas</h3>
+        <p class="text-slate-700 whitespace-pre-wrap text-sm leading-relaxed">{{ equipment.specs }}</p>
+      </div>
+      {% endif %}
+
+      <!-- Notas -->
+      {% if equipment.notes %}
+      <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+        <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">Notas</h3>
+        <p class="text-slate-700 whitespace-pre-wrap text-sm leading-relaxed">{{ equipment.notes }}</p>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Sidebar -->
+    <div class="space-y-5">
+
+      <!-- Tickets del usuario asignado -->
+      {% if related_tickets %}
+      <div class="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+        <div class="px-5 py-4 border-b border-slate-100">
+          <h3 class="font-semibold text-slate-800 text-sm">Tickets de {{ equipment.assigned_to.name }}</h3>
+        </div>
+        <div class="divide-y divide-slate-50">
+          {% for ticket in related_tickets %}
+          <a href="{% url 'ticket_detail' ticket.token %}" class="flex items-start gap-3 px-5 py-3 hover:bg-slate-50 transition">
+            <div class="flex-1 min-w-0">
+              <code class="text-xs font-mono text-brand-600 bg-brand-50 px-1.5 py-0.5 rounded">{{ ticket.token }}</code>
+              <p class="text-xs text-slate-700 mt-1 truncate">{{ ticket.subject }}</p>
+            </div>
+            {% if ticket.status %}
+            <span class="text-xs px-2 py-0.5 rounded-full text-white font-medium flex-shrink-0" style="background:{{ ticket.status.color }}">
+              {{ ticket.status.name }}
+            </span>
+            {% endif %}
+          </a>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- Acciones rápidas -->
+      <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+        <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">Acciones</h3>
+        <div class="space-y-2">
+          <a href="{% url 'inventory_edit' equipment.pk %}"
+             class="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-700 text-sm font-medium transition">
+            <svg class="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+            </svg>
+            Editar equipo
+          </a>
+          <a href="{% url 'inventory_list' %}?company={{ equipment.company.pk }}"
+             class="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-700 text-sm font-medium transition">
+            <svg class="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H7m10 0l-4-4m4 4l-4 4"/>
+            </svg>
+            Ver equipos de {{ equipment.company.name }}
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

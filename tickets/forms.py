@@ -1,8 +1,10 @@
 from django import forms
 from .models import Ticket, TicketComment, CompanyUser
 
+
 class MultipleFileInput(forms.ClearableFileInput):
     allow_multiple_selected = True
+
 
 class MultipleFileField(forms.FileField):
     def __init__(self, *args, **kwargs):
@@ -17,6 +19,7 @@ class MultipleFileField(forms.FileField):
             result = [single_file_clean(data, initial)]
         return result
 
+
 INPUT_CLASS = (
     "w-full px-4 py-3 rounded-xl border border-slate-200 "
     "focus:ring-2 focus:ring-indigo-500 focus:border-transparent "
@@ -25,7 +28,10 @@ INPUT_CLASS = (
 
 SELECT_CLASS = INPUT_CLASS + " cursor-pointer"
 
+
 class TicketPublicForm(forms.ModelForm):
+    """Form for public portal ticket creation."""
+
     attachments = MultipleFileField(
         required=False,
         label="Archivos adjuntos",
@@ -84,6 +90,7 @@ class TicketPublicForm(forms.ModelForm):
             if users_qs.exists():
                 self.fields["company_user"].empty_label = "— Selecciona tu nombre —"
             else:
+                # No registered users: hide selector, show free-text fields
                 self.fields["company_user"].widget = forms.HiddenInput()
                 self.fields["company_user"].required = False
         else:
@@ -101,6 +108,7 @@ class TicketPublicForm(forms.ModelForm):
         email = cleaned.get("requester_email", "").strip()
 
         if company_user:
+            # Auto-fill from registered user
             cleaned["requester_name"] = company_user.name
             cleaned["requester_email"] = company_user.email
         else:
@@ -143,3 +151,70 @@ class TicketSearchForm(forms.Form):
             ),
         })
     )
+
+
+class EquipmentForm(forms.ModelForm):
+    """Form for creating and editing equipment."""
+
+    class Meta:
+        from tickets.models import Equipment as _Eq
+        model = _Eq
+        fields = [
+            "company", "device_type", "brand", "model",
+            "serial_number", "year", "status",
+            "assigned_to", "specs", "notes", "image",
+        ]
+        widgets = {
+            "company": forms.Select(attrs={"class": SELECT_CLASS, "id": "id_company"}),
+            "device_type": forms.Select(attrs={"class": SELECT_CLASS}),
+            "brand": forms.TextInput(attrs={"placeholder": "Ej: Dell, HP, Lenovo", "class": INPUT_CLASS}),
+            "model": forms.TextInput(attrs={"placeholder": "Ej: Latitude 5520", "class": INPUT_CLASS}),
+            "serial_number": forms.TextInput(attrs={"placeholder": "Ej: SN123456789", "class": INPUT_CLASS + " font-mono uppercase"}),
+            "year": forms.NumberInput(attrs={"placeholder": "Ej: 2022", "min": 1990, "max": 2030, "class": INPUT_CLASS}),
+            "status": forms.Select(attrs={"class": SELECT_CLASS}),
+            "assigned_to": forms.Select(attrs={"class": SELECT_CLASS, "id": "id_assigned_to"}),
+            "specs": forms.Textarea(attrs={
+                "placeholder": "CPU: Intel i5 12a gen\nRAM: 16GB DDR4\nDisco: SSD 512GB",
+                "rows": 4, "class": INPUT_CLASS + " resize-none",
+            }),
+            "notes": forms.Textarea(attrs={
+                "placeholder": "Observaciones adicionales...",
+                "rows": 3, "class": INPUT_CLASS + " resize-none",
+            }),
+            "image": forms.FileInput(attrs={"class": "hidden", "id": "equipment-image-input",
+                                            "accept": "image/*"}),
+        }
+        labels = {
+            "company": "Empresa",
+            "device_type": "Tipo de equipo",
+            "brand": "Marca",
+            "model": "Modelo",
+            "serial_number": "Número de serie",
+            "year": "Año de adquisición",
+            "status": "Estado",
+            "assigned_to": "Asignado a",
+            "specs": "Especificaciones técnicas",
+            "notes": "Notas",
+            "image": "Imagen del equipo",
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        from .models import CompanyUser
+        self.fields["assigned_to"].queryset = CompanyUser.objects.none()
+        self.fields["assigned_to"].empty_label = "— Sin asignar —"
+        self.fields["assigned_to"].required = False
+
+        # If editing or POST with company, filter assigned_to
+        company_id = None
+        if self.instance and self.instance.pk and self.instance.company_id:
+            company_id = self.instance.company_id
+        if "company" in self.data:
+            try:
+                company_id = int(self.data["company"])
+            except (ValueError, TypeError):
+                pass
+        if company_id:
+            self.fields["assigned_to"].queryset = CompanyUser.objects.filter(
+                company_id=company_id, is_active=True
+            )

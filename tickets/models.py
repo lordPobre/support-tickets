@@ -3,9 +3,6 @@ from django.db import models
 from django.utils import timezone
 from django.core.mail import send_mail
 from django.conf import settings
-import resend
-import threading
-import logging
 
 
 class Company(models.Model):
@@ -31,6 +28,7 @@ class Company(models.Model):
 
 
 class CompanyUser(models.Model):
+    """A contact/user belonging to a company. Created by admin."""
     company = models.ForeignKey(
         Company, on_delete=models.CASCADE,
         related_name="users", verbose_name="Empresa"
@@ -119,14 +117,17 @@ class Ticket(models.Model):
     subject = models.CharField(max_length=300, verbose_name="Asunto")
     description = models.TextField(verbose_name="Descripción")
 
+    # Category
     category = models.CharField(
         max_length=20, choices=CATEGORY_CHOICES,
         default=CATEGORY_SOFTWARE, verbose_name="Categoría de soporte"
     )
 
+    # Contact info (kept for fallback / non-registered users)
     requester_name = models.CharField(max_length=200, verbose_name="Nombre del solicitante")
     requester_email = models.EmailField(verbose_name="Email del solicitante")
 
+    # Classification
     status = models.ForeignKey(
         TicketStatus, on_delete=models.SET_NULL, null=True,
         related_name="tickets", verbose_name="Estado"
@@ -136,6 +137,7 @@ class Ticket(models.Model):
         related_name="tickets", verbose_name="Prioridad"
     )
 
+    # Billing
     assigned_value = models.DecimalField(
         max_digits=10, decimal_places=2, null=True, blank=True,
         verbose_name="Valor asignado (CLP)",
@@ -143,10 +145,12 @@ class Ticket(models.Model):
     )
     is_billed = models.BooleanField(default=False, verbose_name="Facturado")
 
+    # Dates
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     closed_at = models.DateTimeField(null=True, blank=True)
 
+    # Internal notes
     internal_notes = models.TextField(blank=True, verbose_name="Notas internas")
 
     def __str__(self):
@@ -163,12 +167,16 @@ class Ticket(models.Model):
         self.save()
 
     def _send_mail_async(self, subject, message, recipients):
+        """Envía el email via Resend API en un thread separado."""
+        import threading
+        import logging
         logger = logging.getLogger(__name__)
 
         def _send():
             api_key = getattr(settings, "RESEND_API_KEY", "")
             if api_key:
                 try:
+                    import resend
                     resend.api_key = api_key
                     logger.info(f"[EMAIL] Enviando via Resend a {recipients} — {subject}")
                     resend.Emails.send({
@@ -192,6 +200,7 @@ class Ticket(models.Model):
         t.start()
 
     def send_confirmation_email(self):
+        # Email al cliente
         subject_cliente = f"Ticket #{self.token} recibido — {self.subject}"
         message_cliente = (
             f"Hola {self.requester_name},\n\n"
@@ -206,6 +215,7 @@ class Ticket(models.Model):
         )
         self._send_mail_async(subject_cliente, message_cliente, [self.requester_email])
 
+        # Notificación al administrador
         admin_email = getattr(settings, "ADMIN_NOTIFICATION_EMAIL", settings.DEFAULT_FROM_EMAIL)
         subject_admin = f"[Nuevo Ticket] #{self.token} — {self.company.name}"
         message_admin = (
@@ -270,3 +280,60 @@ class TicketComment(models.Model):
         verbose_name = "Comentario"
         verbose_name_plural = "Comentarios"
         ordering = ["created_at"]
+
+
+# ─────────────────────────────────────────────────────────────
+#  INVENTARIO DE EQUIPOS
+# ─────────────────────────────────────────────────────────────
+
+class Equipment(models.Model):
+
+    DEVICE_TYPES = [
+        ("desktop",  "Desktop / PC"),
+        ("laptop",   "Notebook / Laptop"),
+        ("server",   "Servidor"),
+        ("printer",  "Impresora"),
+        ("monitor",  "Monitor"),
+        ("switch",   "Switch / Router"),
+        ("other",    "Otro"),
+    ]
+
+    STATUS_CHOICES = [
+        ("active",      "Activo"),
+        ("maintenance", "En mantención"),
+        ("retired",     "Dado de baja"),
+        ("storage",     "En bodega"),
+    ]
+
+    company      = models.ForeignKey(Company, on_delete=models.CASCADE, related_name="equipment", verbose_name="Empresa")
+    assigned_to  = models.ForeignKey(CompanyUser, on_delete=models.SET_NULL, null=True, blank=True,
+                                     related_name="equipment", verbose_name="Asignado a")
+
+    # Identificación
+    device_type  = models.CharField(max_length=20, choices=DEVICE_TYPES, default="desktop", verbose_name="Tipo de equipo")
+    brand        = models.CharField(max_length=100, verbose_name="Marca")
+    model        = models.CharField(max_length=100, verbose_name="Modelo")
+    serial_number= models.CharField(max_length=200, unique=True, verbose_name="Número de serie")
+    year         = models.PositiveIntegerField(verbose_name="Año de adquisición")
+
+    # Estado
+    status       = models.CharField(max_length=20, choices=STATUS_CHOICES, default="active", verbose_name="Estado")
+
+    # Especificaciones técnicas (opcional)
+    specs        = models.TextField(blank=True, verbose_name="Especificaciones",
+                                    help_text="CPU, RAM, disco, etc.")
+    notes        = models.TextField(blank=True, verbose_name="Notas adicionales")
+
+    # Imagen del equipo
+    image        = models.FileField(upload_to="equipment/images/", blank=True, null=True, verbose_name="Imagen")
+
+    created_at   = models.DateTimeField(auto_now_add=True)
+    updated_at   = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.get_device_type_display()} — {self.brand} {self.model} ({self.serial_number})"
+
+    class Meta:
+        verbose_name = "Equipo"
+        verbose_name_plural = "Equipos"
+        ordering = ["company", "device_type", "brand"]

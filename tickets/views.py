@@ -7,12 +7,6 @@ from .models import Company, Ticket, TicketStatus, TicketPriority
 from .forms import TicketPublicForm, TicketCommentForm, TicketSearchForm
 from django.http import HttpResponse
 from .exports import generate_ticket_pdf, generate_ticket_image
-import io
-from openpyxl import Workbook
-from openpyxl.styles import (
-    Font, PatternFill, Alignment, Border, Side, numbers
-)
-from openpyxl.utils import get_column_letter
 
 
 # ─────────────────────────────────────────────────────────────
@@ -168,6 +162,10 @@ def ticket_detail(request, token):
     return render(request, "tickets/ticket_detail.html", context)
 
 
+# ─────────────────────────────────────────────────────────────
+#  PUBLIC PORTAL (no login required)
+# ─────────────────────────────────────────────────────────────
+
 CATEGORY_META = {
     "software": {
         "icon": "💻", "color": "#6366F1", "bg": "#EEF2FF",
@@ -227,6 +225,7 @@ def portal_home(request, company_slug):
                 )
                 return redirect("portal_ticket", company_slug=company_slug, token=ticket.token)
 
+    # Historial de tickets de la empresa
     history_qs = company.tickets.select_related("status", "priority").order_by("-created_at")
     filter_category = request.GET.get("cat", "")
     filter_status   = request.GET.get("st", "")
@@ -279,6 +278,11 @@ def portal_ticket(request, company_slug, token):
     }
     return render(request, "tickets/portal_ticket.html", context)
 
+
+# ─────────────────────────────────────────────────────────────
+#  EXPORT: PDF & IMAGE
+# ─────────────────────────────────────────────────────────────
+
 @login_required
 def ticket_pdf(request, token):
     ticket = get_object_or_404(Ticket, token=token)
@@ -314,8 +318,21 @@ def portal_ticket_image(request, company_slug, token):
     response["Content-Disposition"] = f'attachment; filename="ticket-{ticket.token}.png"'
     return response
 
+
+# ─────────────────────────────────────────────────────────────
+#  EXPORT EXCEL
+# ─────────────────────────────────────────────────────────────
+
 @login_required
 def ticket_export_excel(request):
+    import io
+    from openpyxl import Workbook
+    from openpyxl.styles import (
+        Font, PatternFill, Alignment, Border, Side, numbers
+    )
+    from openpyxl.utils import get_column_letter
+
+    # ── Aplicar los mismos filtros que ticket_list ──
     tickets = Ticket.objects.select_related("company", "status", "priority").order_by("-created_at")
 
     company_id  = request.GET.get("company")
@@ -348,10 +365,13 @@ def ticket_export_excel(request):
             Q(token__icontains=q) | Q(subject__icontains=q) |
             Q(requester_name__icontains=q) | Q(requester_email__icontains=q)
         )
+
+    # ── Construir Excel ──
     wb = Workbook()
     ws = wb.active
     ws.title = "Tickets"
 
+    # Colores
     INDIGO      = "4F46E5"
     INDIGO_LIGHT= "EEF2FF"
     SLATE_100   = "F1F5F9"
@@ -503,3 +523,122 @@ def ticket_export_excel(request):
     )
     response["Content-Disposition"] = f'attachment; filename="{filename}"'
     return response
+
+
+# ─────────────────────────────────────────────────────────────
+#  INVENTARIO
+# ─────────────────────────────────────────────────────────────
+
+@login_required
+def inventory_list(request):
+    from .models import Equipment
+    equipments = Equipment.objects.select_related("company", "assigned_to").order_by("company", "device_type", "brand")
+
+    company_id  = request.GET.get("company", "")
+    status      = request.GET.get("status", "")
+    device_type = request.GET.get("device_type", "")
+    q           = request.GET.get("q", "").strip()
+
+    if company_id:
+        equipments = equipments.filter(company_id=company_id)
+    if status:
+        equipments = equipments.filter(status=status)
+    if device_type:
+        equipments = equipments.filter(device_type=device_type)
+    if q:
+        equipments = equipments.filter(
+            Q(brand__icontains=q) | Q(model__icontains=q) |
+            Q(serial_number__icontains=q) | Q(assigned_to__name__icontains=q)
+        )
+
+    from .models import Equipment as Eq
+    context = {
+        "equipments": equipments,
+        "companies": Company.objects.filter(is_active=True),
+        "status_choices": Eq.STATUS_CHOICES,
+        "device_type_choices": Eq.DEVICE_TYPES,
+        "filters": {"company": company_id, "status": status, "device_type": device_type, "q": q},
+        "total": equipments.count(),
+        "active_count": equipments.filter(status="active").count(),
+        "maintenance_count": equipments.filter(status="maintenance").count(),
+    }
+    return render(request, "tickets/inventory_list.html", context)
+
+
+@login_required
+def inventory_detail(request, pk):
+    from .models import Equipment
+    equipment = get_object_or_404(Equipment, pk=pk)
+    # Tickets relacionados al usuario asignado en la misma empresa
+    related_tickets = []
+    if equipment.assigned_to:
+        related_tickets = Ticket.objects.filter(
+            company=equipment.company,
+            company_user=equipment.assigned_to
+        ).order_by("-created_at")[:5]
+
+    context = {"equipment": equipment, "related_tickets": related_tickets}
+    return render(request, "tickets/inventory_detail.html", context)
+
+
+@login_required
+def inventory_add(request):
+    """Create a new equipment."""
+    from .forms import EquipmentForm
+    from .models import Equipment, CompanyUser
+
+    form = EquipmentForm(request.POST or None, request.FILES or None)
+
+    # AJAX: filter assigned_to by company
+    if request.headers.get("x-requested-with") == "XMLHttpRequest":
+        company_id = request.GET.get("company_id")
+        users = CompanyUser.objects.filter(company_id=company_id, is_active=True).values("id", "name")
+        from django.http import JsonResponse
+        return JsonResponse({"users": list(users)})
+
+    if request.method == "POST" and form.is_valid():
+        equipment = form.save()
+        messages.success(request, f"Equipo {equipment.brand} {equipment.model} registrado correctamente.")
+        return redirect("inventory_detail", pk=equipment.pk)
+
+    context = {"form": form, "title": "Agregar equipo", "is_edit": False}
+    return render(request, "tickets/inventory_form.html", context)
+
+
+@login_required
+def inventory_edit(request, pk):
+    """Edit existing equipment."""
+    from .forms import EquipmentForm
+    from .models import Equipment, CompanyUser
+
+    equipment = get_object_or_404(Equipment, pk=pk)
+
+    # AJAX: filter assigned_to by company
+    if request.headers.get("x-requested-with") == "XMLHttpRequest":
+        company_id = request.GET.get("company_id")
+        users = CompanyUser.objects.filter(company_id=company_id, is_active=True).values("id", "name")
+        from django.http import JsonResponse
+        return JsonResponse({"users": list(users)})
+
+    form = EquipmentForm(request.POST or None, request.FILES or None, instance=equipment)
+
+    if request.method == "POST" and form.is_valid():
+        form.save()
+        messages.success(request, "Equipo actualizado correctamente.")
+        return redirect("inventory_detail", pk=equipment.pk)
+
+    context = {"form": form, "equipment": equipment, "title": "Editar equipo", "is_edit": True}
+    return render(request, "tickets/inventory_form.html", context)
+
+
+@login_required
+def inventory_delete(request, pk):
+    """Delete equipment via POST."""
+    from .models import Equipment
+    equipment = get_object_or_404(Equipment, pk=pk)
+    if request.method == "POST":
+        name = f"{equipment.brand} {equipment.model}"
+        equipment.delete()
+        messages.success(request, f"Equipo {name} eliminado.")
+        return redirect("inventory_list")
+    return redirect("inventory_detail", pk=pk)

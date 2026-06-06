@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+{% block title %}Inventario — Soporte{% endblock %}
+
+{% block content %}
+<div class="px-4 lg:px-8 py-4 lg:py-6">
+
+  <!-- Header -->
+  <div class="flex flex-wrap items-center justify-between gap-3 mb-6">
+    <div>
+      <h1 class="text-2xl font-bold text-slate-900">Inventario de Equipos</h1>
+      <p class="text-slate-500 mt-1">{{ total }} equipo{{ total|pluralize:"s" }} registrado{{ total|pluralize:"s" }}</p>
+    </div>
+    <a href="{% url 'inventory_add' %}"
+       class="flex items-center gap-2 px-4 py-2.5 bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold rounded-xl transition">
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+      </svg>
+      Agregar equipo
+    </a>
+  </div>
+
+  <!-- KPIs -->
+  <div class="grid grid-cols-2 lg:grid-cols-3 gap-3 mb-6">
+    <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
+      <p class="text-xs font-medium text-slate-500 mb-1">Total equipos</p>
+      <p class="text-2xl font-bold text-slate-900">{{ total }}</p>
+    </div>
+    <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
+      <p class="text-xs font-medium text-slate-500 mb-1">Activos</p>
+      <p class="text-2xl font-bold text-emerald-600">{{ active_count }}</p>
+    </div>
+    <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
+      <p class="text-xs font-medium text-slate-500 mb-1">En mantención</p>
+      <p class="text-2xl font-bold text-amber-500">{{ maintenance_count }}</p>
+    </div>
+  </div>
+
+  <!-- Filters -->
+  <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 mb-6">
+    <form method="get" class="flex flex-wrap gap-3 items-end">
+      <div class="flex-1 min-w-44">
+        <label class="block text-xs font-medium text-slate-500 mb-1">Buscar</label>
+        <input type="text" name="q" value="{{ filters.q }}" placeholder="Marca, modelo, serie, usuario..."
+          class="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 focus:ring-2 focus:ring-brand-500 focus:border-transparent outline-none" />
+      </div>
+      <div class="min-w-36">
+        <label class="block text-xs font-medium text-slate-500 mb-1">Empresa</label>
+        <select name="company" class="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 focus:ring-2 focus:ring-brand-500 outline-none bg-white">
+          <option value="">Todas</option>
+          {% for c in companies %}
+          <option value="{{ c.pk }}" {% if filters.company == c.pk|stringformat:"s" %}selected{% endif %}>{{ c.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="min-w-36">
+        <label class="block text-xs font-medium text-slate-500 mb-1">Tipo</label>
+        <select name="device_type" class="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 focus:ring-2 focus:ring-brand-500 outline-none bg-white">
+          <option value="">Todos</option>
+          {% for val, label in device_type_choices %}
+          <option value="{{ val }}" {% if filters.device_type == val %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="min-w-36">
+        <label class="block text-xs font-medium text-slate-500 mb-1">Estado</label>
+        <select name="status" class="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 focus:ring-2 focus:ring-brand-500 outline-none bg-white">
+          <option value="">Todos</option>
+          {% for val, label in status_choices %}
+          <option value="{{ val }}" {% if filters.status == val %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="flex gap-2">
+        <button type="submit" class="px-4 py-2 bg-brand-600 text-white text-sm font-medium rounded-lg hover:bg-brand-700 transition">Filtrar</button>
+        <a href="{% url 'inventory_list' %}" class="px-4 py-2 bg-slate-100 text-slate-600 text-sm font-medium rounded-lg hover:bg-slate-200 transition">Limpiar</a>
+      </div>
+    </form>
+  </div>
+
+  <!-- Grid de equipos -->
+  {% if equipments %}
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+    {% for eq in equipments %}
+    {% with status_colors="active:#10B981,maintenance:#F59E0B,retired:#EF4444,storage:#6B7280" %}
+    <a href="{% url 'inventory_detail' eq.pk %}"
+       class="bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md hover:border-brand-200 transition p-5 flex flex-col gap-3">
+
+      <!-- Tipo + Estado -->
+      <div class="flex items-start justify-between">
+        <div class="w-10 h-10 rounded-xl flex items-center justify-center text-xl
+          {% if eq.device_type == 'laptop' %}bg-indigo-50
+          {% elif eq.device_type == 'desktop' %}bg-blue-50
+          {% elif eq.device_type == 'server' %}bg-slate-100
+          {% elif eq.device_type == 'printer' %}bg-amber-50
+          {% elif eq.device_type == 'monitor' %}bg-cyan-50
+          {% else %}bg-slate-50{% endif %}">
+          {% if eq.device_type == 'laptop' %}💻
+          {% elif eq.device_type == 'desktop' %}🖥️
+          {% elif eq.device_type == 'server' %}🗄️
+          {% elif eq.device_type == 'printer' %}🖨️
+          {% elif eq.device_type == 'monitor' %}🖵
+          {% elif eq.device_type == 'switch' %}🔀
+          {% else %}📦{% endif %}
+        </div>
+        <span class="text-xs px-2.5 py-1 rounded-full text-white font-medium
+          {% if eq.status == 'active' %}bg-emerald-500
+          {% elif eq.status == 'maintenance' %}bg-amber-500
+          {% elif eq.status == 'retired' %}bg-red-500
+          {% else %}bg-slate-400{% endif %}">
+          {{ eq.get_status_display }}
+        </span>
+      </div>
+
+      <!-- Info -->
+      <div>
+        <p class="font-semibold text-slate-900">{{ eq.brand }} {{ eq.model }}</p>
+        <p class="text-xs text-slate-400 mt-0.5">{{ eq.get_device_type_display }} · {{ eq.year }}</p>
+      </div>
+
+      <!-- Serie -->
+      <div class="bg-slate-50 rounded-lg px-3 py-2">
+        <p class="text-xs text-slate-400 mb-0.5">Nº Serie</p>
+        <p class="font-mono text-xs font-semibold text-slate-700 truncate">{{ eq.serial_number }}</p>
+      </div>
+
+      <!-- Empresa + Usuario -->
+      <div class="flex items-center justify-between pt-1 border-t border-slate-100">
+        <div class="flex items-center gap-2 min-w-0">
+          {% if eq.company.logo %}
+          <img src="{{ eq.company.logo.url }}" alt="{{ eq.company.name }}" class="h-5 w-auto object-contain max-w-16 rounded" />
+          {% else %}
+          <div class="w-5 h-5 bg-brand-600 rounded flex items-center justify-center text-white text-xs font-bold">
+            {{ eq.company.name|first|upper }}
+          </div>
+          {% endif %}
+          <span class="text-xs text-slate-500 truncate">{{ eq.company.name }}</span>
+        </div>
+        {% if eq.assigned_to %}
+        <span class="text-xs text-slate-500 truncate max-w-24" title="{{ eq.assigned_to.name }}">
+          👤 {{ eq.assigned_to.name|truncatechars:14 }}
+        </span>
+        {% else %}
+        <span class="text-xs text-slate-300">Sin asignar</span>
+        {% endif %}
+      </div>
+    </a>
+    {% endwith %}
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="bg-white rounded-2xl border border-slate-100 shadow-sm py-16 text-center">
+    <div class="w-14 h-14 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-4 text-2xl">🖥️</div>
+    <p class="text-slate-500 font-medium">No hay equipos registrados.</p>
+    <a href="{% url 'inventory_add' %}"
+       class="inline-flex items-center gap-2 mt-4 px-4 py-2 bg-brand-600 text-white text-sm font-medium rounded-xl hover:bg-brand-700 transition">
+      Agregar primer equipo
+    </a>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

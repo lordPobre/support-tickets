@@ -4,6 +4,11 @@ from . import views
 urlpatterns = [
     path("", views.dashboard, name="dashboard"),
     path("tickets/", views.ticket_list, name="ticket_list"),
+    path("inventario/", views.inventory_list, name="inventory_list"),
+    path("inventario/agregar/", views.inventory_add, name="inventory_add"),
+    path("inventario/<int:pk>/", views.inventory_detail, name="inventory_detail"),
+    path("inventario/<int:pk>/editar/", views.inventory_edit, name="inventory_edit"),
+    path("inventario/<int:pk>/eliminar/", views.inventory_delete, name="inventory_delete"),
     path("tickets/export/excel/", views.ticket_export_excel, name="ticket_export_excel"),
     path("tickets/<str:token>/", views.ticket_detail, name="ticket_detail"),
     path("tickets/<str:token>/pdf/", views.ticket_pdf, name="ticket_pdf"),

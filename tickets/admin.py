@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.utils.html import format_html
 from django.db.models import Sum, Count
-from .models import Company, CompanyUser, Ticket, TicketStatus, TicketPriority, TicketAttachment, TicketComment
+from .models import Company, CompanyUser, Ticket, TicketStatus, TicketPriority, TicketAttachment, TicketComment, Equipment
 
 
 class CompanyUserInline(admin.TabularInline):
@@ -219,3 +219,60 @@ class TicketPriorityAdmin(admin.ModelAdmin):
 admin.site.site_header = "Soporte — Panel de Control"
 admin.site.site_title = "Support Admin"
 admin.site.index_title = "Gestión de Tickets"
+
+
+@admin.register(Equipment)
+class EquipmentAdmin(admin.ModelAdmin):
+    list_display  = ("device_type_badge", "brand_model", "serial_number", "company",
+                     "assigned_to", "year", "status_badge", "updated_at")
+    list_filter   = ("status", "device_type", "company", "year")
+    search_fields = ("brand", "model", "serial_number", "assigned_to__name")
+    readonly_fields = ("created_at", "updated_at")
+    list_per_page = 25
+
+    fieldsets = (
+        ("Identificación", {
+            "fields": ("company", "device_type", "brand", "model", "serial_number", "year", "image")
+        }),
+        ("Asignación y Estado", {
+            "fields": ("assigned_to", "status")
+        }),
+        ("Detalles técnicos", {
+            "fields": ("specs", "notes"),
+            "classes": ("collapse",),
+        }),
+        ("Fechas", {
+            "fields": ("created_at", "updated_at"),
+            "classes": ("collapse",),
+        }),
+    )
+
+    DEVICE_ICONS = {
+        "desktop":  "🖥️", "laptop": "💻", "server": "🗄️",
+        "printer":  "🖨️", "monitor": "🖵", "switch": "🔀", "other": "📦",
+    }
+    STATUS_COLORS = {
+        "active": "#10B981", "maintenance": "#F59E0B",
+        "retired": "#EF4444", "storage": "#6B7280",
+    }
+
+    @admin.display(description="Tipo")
+    def device_type_badge(self, obj):
+        icon = self.DEVICE_ICONS.get(obj.device_type, "📦")
+        return format_html(
+            '<span title="{}">{}</span>',
+            obj.get_device_type_display(), icon
+        )
+
+    @admin.display(description="Marca / Modelo")
+    def brand_model(self, obj):
+        return format_html("<b>{}</b> {}", obj.brand, obj.model)
+
+    @admin.display(description="Estado")
+    def status_badge(self, obj):
+        color = self.STATUS_COLORS.get(obj.status, "#6B7280")
+        return format_html(
+            '<span style="background:{};color:white;padding:2px 10px;'
+            'border-radius:12px;font-size:12px;">{}</span>',
+            color, obj.get_status_display()
+        )
