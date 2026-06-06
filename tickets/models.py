@@ -37,6 +37,8 @@ class CompanyUser(models.Model):
     email = models.EmailField(verbose_name="Email")
     position = models.CharField(max_length=100, blank=True, verbose_name="Cargo")
     is_active = models.BooleanField(default=True, verbose_name="Activo")
+    is_manager = models.BooleanField(default=False, verbose_name="Es jefatura",
+                                       help_text="Puede acceder al inventario de equipos en el portal")
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):

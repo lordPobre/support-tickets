@@ -642,3 +642,75 @@ def inventory_delete(request, pk):
         messages.success(request, f"Equipo {name} eliminado.")
         return redirect("inventory_list")
     return redirect("inventory_detail", pk=pk)
+
+
+# ─────────────────────────────────────────────────────────────
+#  PORTAL LOGIN / INVENTARIO
+# ─────────────────────────────────────────────────────────────
+
+def _portal_session_key(company_slug):
+    return f"portal_user_{company_slug}"
+
+
+def portal_login(request, company_slug):
+    company = get_object_or_404(Company, slug=company_slug, is_active=True)
+    error = None
+
+    if request.method == "POST":
+        email = request.POST.get("email", "").strip().lower()
+        from .models import CompanyUser
+        try:
+            user = CompanyUser.objects.get(
+                company=company, email__iexact=email, is_active=True
+            )
+            if not user.is_manager:
+                error = "Tu usuario no tiene acceso al inventario. Contacta a tu administrador."
+            else:
+                request.session[_portal_session_key(company_slug)] = {
+                    "user_id": user.pk,
+                    "user_name": user.name,
+                    "user_email": user.email,
+                }
+                next_url = request.GET.get("next", "")
+                if next_url:
+                    return redirect(next_url)
+                return redirect("portal_inventory", company_slug=company_slug)
+        except CompanyUser.DoesNotExist:
+            error = "Email no encontrado o no autorizado para esta empresa."
+
+    context = {"company": company, "error": error}
+    return render(request, "tickets/portal_login.html", context)
+
+
+def portal_logout(request, company_slug):
+    request.session.pop(_portal_session_key(company_slug), None)
+    return redirect("portal_home", company_slug=company_slug)
+
+
+def portal_inventory(request, company_slug):
+    company = get_object_or_404(Company, slug=company_slug, is_active=True)
+
+    # Check session
+    session_data = request.session.get(_portal_session_key(company_slug))
+    if not session_data:
+        from django.urls import reverse
+        login_url = reverse("portal_login", kwargs={"company_slug": company_slug})
+        return redirect(f"{login_url}?next=/portal/{company_slug}/inventario/")
+
+    from .models import Equipment, CompanyUser
+    try:
+        portal_user = CompanyUser.objects.get(pk=session_data["user_id"], is_active=True)
+    except CompanyUser.DoesNotExist:
+        request.session.pop(_portal_session_key(company_slug), None)
+        return redirect("portal_login", company_slug=company_slug)
+
+    # All company equipment
+    equipments = Equipment.objects.filter(company=company).select_related("assigned_to").order_by("device_type", "brand")
+
+    context = {
+        "company": company,
+        "portal_user": portal_user,
+        "equipments": equipments,
+        "my_equipment": equipments.filter(assigned_to=portal_user),
+    }
+    return render(request, "tickets/portal_inventory.html", context)

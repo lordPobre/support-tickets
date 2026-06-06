@@ -7,7 +7,7 @@ from .models import Company, CompanyUser, Ticket, TicketStatus, TicketPriority, 
 class CompanyUserInline(admin.TabularInline):
     model = CompanyUser
     extra = 1
-    fields = ("name", "email", "position", "is_active")
+    fields = ("name", "email", "position", "is_active", "is_manager")
     verbose_name = "Usuario de empresa"
     verbose_name_plural = "Usuarios de la empresa"
 
@@ -59,8 +59,8 @@ class CompanyAdmin(admin.ModelAdmin):
 
 @admin.register(CompanyUser)
 class CompanyUserAdmin(admin.ModelAdmin):
-    list_display = ("name", "company", "email", "position", "tickets_count", "is_active")
-    list_filter = ("company", "is_active")
+    list_display = ("name", "company", "email", "position", "is_manager", "tickets_count", "is_active")
+    list_filter = ("company", "is_active", "is_manager")
     search_fields = ("name", "email", "company__name")
     readonly_fields = ("created_at",)
 

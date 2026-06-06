@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}Acceso al Inventario — {{ company.name }}{% endblock %}
+
+{% block layout %}
+<div class="min-h-screen bg-slate-50 flex flex-col">
+
+  <!-- Header -->
+  <header class="bg-white border-b border-slate-100 shadow-sm">
+    <div class="max-w-3xl mx-auto px-6 py-4">
+      <a href="{% url 'portal_home' company.slug %}" class="flex items-center gap-3 w-fit hover:opacity-80 transition">
+        {% if company.logo %}
+        <img src="{{ company.logo.url }}" alt="{{ company.name }}" class="h-9 w-auto object-contain" />
+        {% else %}
+        <div class="w-9 h-9 bg-indigo-600 rounded-xl flex items-center justify-center font-bold text-white text-lg">
+          {{ company.name|first|upper }}
+        </div>
+        {% endif %}
+        <div>
+          <p class="font-bold text-slate-900 leading-tight">{{ company.name }}</p>
+          <p class="text-slate-400 text-xs">Portal de Soporte</p>
+        </div>
+      </a>
+    </div>
+  </header>
+
+  <main class="flex-1 flex items-center justify-center p-6">
+    <div class="w-full max-w-sm">
+
+      <!-- Card -->
+      <div class="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
+        <div class="bg-gradient-to-r from-indigo-600 to-indigo-700 px-7 py-6 text-center">
+          <div class="w-14 h-14 bg-white/20 rounded-2xl flex items-center justify-center mx-auto mb-3 text-2xl">
+            🖥️
+          </div>
+          <h2 class="text-white font-bold text-lg">Inventario de Equipos</h2>
+          <p class="text-indigo-200 text-sm mt-1">Ingresa tu email para acceder</p>
+        </div>
+
+        <div class="px-7 py-6">
+          {% if error %}
+          <div class="bg-red-50 text-red-700 text-sm px-4 py-3 rounded-xl border border-red-100 mb-4 flex items-center gap-2">
+            <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            {{ error }}
+          </div>
+          {% endif %}
+
+          <form method="post">
+            {% csrf_token %}
+            <div class="mb-4">
+              <label class="block text-sm font-medium text-slate-600 mb-1.5">Tu email corporativo</label>
+              <input type="email" name="email" autofocus required
+                placeholder="tu@empresa.com"
+                class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition text-slate-800 text-sm placeholder-slate-400" />
+            </div>
+            <button type="submit"
+              class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition text-sm">
+              Acceder al inventario
+            </button>
+          </form>
+
+          <div class="mt-5 pt-5 border-t border-slate-100 text-center">
+            <a href="{% url 'portal_home' company.slug %}" class="text-sm text-slate-400 hover:text-indigo-600 transition">
+              ← Volver al portal de soporte
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <p class="text-center text-xs text-slate-400 mt-4">
+        Solo usuarios autorizados de {{ company.name }} pueden acceder.
+      </p>
+    </div>
+  </main>
+</div>
+{% endblock layout %}
