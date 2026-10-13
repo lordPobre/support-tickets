@@ -11,6 +11,7 @@ urlpatterns = [
     path("inventario/<int:pk>/editar/", views.inventory_edit, name="inventory_edit"),
     path("inventario/<int:pk>/eliminar/", views.inventory_delete, name="inventory_delete"),
     path("tickets/export/excel/", views.ticket_export_excel, name="ticket_export_excel"),
+    path("tickets/export/cobro/", views.ticket_export_billing_pdf, name="ticket_export_billing_pdf"),
     path("tickets/<str:token>/", views.ticket_detail, name="ticket_detail"),
     path("tickets/<str:token>/pdf/", views.ticket_pdf, name="ticket_pdf"),
     path("tickets/<str:token>/image/", views.ticket_image, name="ticket_image"),

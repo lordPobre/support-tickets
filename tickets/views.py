@@ -526,6 +526,181 @@ def ticket_export_excel(request):
 
 
 # ─────────────────────────────────────────────────────────────
+#  EXPORT: BILLING PDF
+# ─────────────────────────────────────────────────────────────
+
+@login_required
+def ticket_export_billing_pdf(request):
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib import colors
+    from reportlab.lib.units import cm
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, HRFlowable
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.enums import TA_CENTER, TA_RIGHT
+    import io
+
+    # ── Aplicar los mismos filtros que ticket_list ──
+    tickets = Ticket.objects.select_related("company", "status", "priority").order_by("-created_at")
+
+    company_id  = request.GET.get("company")
+    status_id   = request.GET.get("status")
+    priority_id = request.GET.get("priority")
+    category    = request.GET.get("category")
+    billed      = request.GET.get("billed")
+    date_from   = request.GET.get("date_from", "")
+    date_to     = request.GET.get("date_to", "")
+    q           = request.GET.get("q", "").strip()
+
+    if company_id:
+        tickets = tickets.filter(company_id=company_id)
+    if status_id:
+        tickets = tickets.filter(status_id=status_id)
+    if priority_id:
+        tickets = tickets.filter(priority_id=priority_id)
+    if category:
+        tickets = tickets.filter(category=category)
+    if billed == "1":
+        tickets = tickets.filter(is_billed=True)
+    elif billed == "0":
+        tickets = tickets.filter(is_billed=False)
+    if date_from:
+        tickets = tickets.filter(created_at__date__gte=date_from)
+    if date_to:
+        tickets = tickets.filter(created_at__date__lte=date_to)
+    if q:
+        tickets = tickets.filter(
+            Q(token__icontains=q) | Q(subject__icontains=q) |
+            Q(requester_name__icontains=q) | Q(requester_email__icontains=q)
+        )
+
+    # Nombre de empresa para el encabezado del PDF
+    companies = tickets.values_list("company__name", flat=True).distinct()
+    if companies.count() == 1:
+        company_name = companies.first()
+        filename_slug = company_name.lower().replace(" ", "_")
+    elif company_id:
+        try:
+            company_name = Company.objects.get(pk=company_id).name
+            filename_slug = company_name.lower().replace(" ", "_")
+        except Company.DoesNotExist:
+            company_name = "Varias empresas"
+            filename_slug = "cobro"
+    else:
+        company_name = "Todas las empresas"
+        filename_slug = "cobro"
+
+    # ── Construir PDF ──
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buffer, pagesize=A4,
+        rightMargin=2*cm, leftMargin=2*cm,
+        topMargin=2*cm, bottomMargin=2*cm,
+    )
+
+    styles = getSampleStyleSheet()
+    brand   = colors.HexColor("#4F46E5")
+    dark    = colors.HexColor("#111827")
+    muted   = colors.HexColor("#6B7280")
+    light   = colors.HexColor("#F9FAFB")
+    border  = colors.HexColor("#E5E7EB")
+
+    s_title  = ParagraphStyle("t",  fontSize=22, textColor=brand,  fontName="Helvetica-Bold", spaceAfter=2)
+    s_sub    = ParagraphStyle("s",  fontSize=11, textColor=dark,   fontName="Helvetica-Bold", spaceAfter=2)
+    s_meta   = ParagraphStyle("m",  fontSize=9,  textColor=muted,  fontName="Helvetica")
+    s_center = ParagraphStyle("c",  fontSize=9,  fontName="Helvetica", alignment=TA_CENTER)
+    s_right  = ParagraphStyle("r",  fontSize=9,  fontName="Helvetica", alignment=TA_RIGHT)
+
+    now = timezone.localtime(timezone.now())
+    meses = ["enero","febrero","marzo","abril","mayo","junio",
+             "julio","agosto","septiembre","octubre","noviembre","diciembre"]
+    fecha_str = f"{now.day} de {meses[now.month-1]} de {now.year}"
+
+    story = []
+    story.append(Paragraph("Perseus Technology", s_title))
+    story.append(Paragraph("Detalle de Cobro — Soporte TI", s_sub))
+    story.append(Spacer(1, 0.1*cm))
+    story.append(Paragraph(f"Empresa: <b>{company_name}</b>", s_meta))
+    story.append(Paragraph(f"Fecha de emisión: {fecha_str}", s_meta))
+    if date_from or date_to:
+        rango = f"{date_from or '—'} al {date_to or '—'}"
+        story.append(Paragraph(f"Período: {rango}", s_meta))
+    story.append(Spacer(1, 0.4*cm))
+    story.append(HRFlowable(width="100%", thickness=1.5, color=brand))
+    story.append(Spacer(1, 0.4*cm))
+
+    col_widths = [2.2*cm, 6.8*cm, 3.2*cm, 2.4*cm, 2.4*cm]
+    header = [
+        Paragraph("<b>Token</b>",     s_center),
+        Paragraph("<b>Asunto</b>",    s_center),
+        Paragraph("<b>Categoría</b>", s_center),
+        Paragraph("<b>Estado</b>",    s_center),
+        Paragraph("<b>Valor (CLP)</b>", s_center),
+    ]
+    data = [header]
+    total = 0
+    cat_labels = {"software": "Software", "hardware": "Hardware", "email": "Email"}
+
+    for t in tickets:
+        valor = t.assigned_value
+        if valor is not None:
+            total += valor
+            valor_str = f"$ {int(valor):,}".replace(",", ".")
+        else:
+            valor_str = "—"
+        data.append([
+            Paragraph(f'<font color="#4F46E5"><b>{t.token}</b></font>', s_center),
+            Paragraph(t.subject, styles["Normal"]),
+            Paragraph(cat_labels.get(t.category, t.category), s_center),
+            Paragraph(t.status.name if t.status else "—", s_center),
+            Paragraph(f"<b>{valor_str}</b>", s_right),
+        ])
+
+    table = Table(data, colWidths=col_widths, repeatRows=1)
+    table.setStyle(TableStyle([
+        ("BACKGROUND",    (0, 0), (-1, 0), brand),
+        ("TEXTCOLOR",     (0, 0), (-1, 0), colors.white),
+        ("FONTNAME",      (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTSIZE",      (0, 0), (-1, 0), 9),
+        ("ROWBACKGROUNDS",(0, 1), (-1, -1), [colors.white, light]),
+        ("GRID",          (0, 0), (-1, -1), 0.5, border),
+        ("VALIGN",        (0, 0), (-1, -1), "MIDDLE"),
+        ("TOPPADDING",    (0, 0), (-1, -1), 6),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+        ("LEFTPADDING",   (0, 0), (-1, -1), 8),
+        ("RIGHTPADDING",  (0, 0), (-1, -1), 8),
+        ("FONTSIZE",      (0, 1), (-1, -1), 8),
+    ]))
+    story.append(table)
+    story.append(Spacer(1, 0.6*cm))
+    story.append(HRFlowable(width="100%", thickness=0.5, color=border))
+    story.append(Spacer(1, 0.3*cm))
+
+    total_fmt = f"$ {int(total):,}".replace(",", ".")
+    story.append(Paragraph(f"Total de tickets: {tickets.count()}", s_meta))
+    story.append(Spacer(1, 0.2*cm))
+    story.append(Paragraph("TOTAL A COBRAR", ParagraphStyle("tl", fontSize=12, textColor=dark,
+                                                             fontName="Helvetica-Bold", alignment=TA_RIGHT)))
+    story.append(Paragraph(total_fmt, ParagraphStyle("tv", fontSize=14, textColor=brand,
+                                                      fontName="Helvetica-Bold", alignment=TA_RIGHT)))
+    story.append(Spacer(1, 0.6*cm))
+    story.append(HRFlowable(width="100%", thickness=0.5, color=border))
+    story.append(Spacer(1, 0.3*cm))
+    story.append(Paragraph(
+        "Este documento es un detalle interno de servicios prestados. "
+        "Perseus Technology — soporte@perseustechnology.dev", s_meta
+    ))
+
+    doc.build(story)
+    buffer.seek(0)
+
+    fecha_file = now.strftime("%Y%m%d")
+    filename = f"cobro_{filename_slug}_{fecha_file}.pdf"
+    response = HttpResponse(buffer.read(), content_type="application/pdf")
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    return response
+
+
+# ─────────────────────────────────────────────────────────────
 #  INVENTARIO
 # ─────────────────────────────────────────────────────────────
 
