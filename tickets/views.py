@@ -604,8 +604,8 @@ def ticket_export_billing_pdf(request):
     light   = colors.HexColor("#F9FAFB")
     border  = colors.HexColor("#E5E7EB")
 
-    s_title  = ParagraphStyle("t",  fontSize=22, textColor=brand,  fontName="Helvetica-Bold", spaceAfter=2)
-    s_sub    = ParagraphStyle("s",  fontSize=11, textColor=dark,   fontName="Helvetica-Bold", spaceAfter=2)
+    s_title  = ParagraphStyle("t",  fontSize=22, textColor=brand,  fontName="Helvetica-Bold", spaceAfter=10)
+    s_sub    = ParagraphStyle("s",  fontSize=11, textColor=dark,   fontName="Helvetica-Bold", spaceAfter=4)
     s_meta   = ParagraphStyle("m",  fontSize=9,  textColor=muted,  fontName="Helvetica")
     s_center = ParagraphStyle("c",  fontSize=9,  fontName="Helvetica", alignment=TA_CENTER)
     s_right  = ParagraphStyle("r",  fontSize=9,  fontName="Helvetica", alignment=TA_RIGHT)
@@ -617,8 +617,9 @@ def ticket_export_billing_pdf(request):
 
     story = []
     story.append(Paragraph("Perseus Technology", s_title))
+    story.append(Spacer(1, 0.15*cm))
     story.append(Paragraph("Detalle de Cobro — Soporte TI", s_sub))
-    story.append(Spacer(1, 0.1*cm))
+    story.append(Spacer(1, 0.2*cm))
     story.append(Paragraph(f"Empresa: <b>{company_name}</b>", s_meta))
     story.append(Paragraph(f"Fecha de emisión: {fecha_str}", s_meta))
     if date_from or date_to:
@@ -628,7 +629,7 @@ def ticket_export_billing_pdf(request):
     story.append(HRFlowable(width="100%", thickness=1.5, color=brand))
     story.append(Spacer(1, 0.4*cm))
 
-    col_widths = [2.2*cm, 6.8*cm, 3.2*cm, 2.4*cm, 2.4*cm]
+    col_widths = [3.0*cm, 6.0*cm, 2.8*cm, 2.4*cm, 2.8*cm]
     header = [
         Paragraph("<b>Token</b>",     s_center),
         Paragraph("<b>Asunto</b>",    s_center),
