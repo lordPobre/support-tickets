@@ -6,10 +6,13 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.environ.get("SECRET_KEY", "django-insecure-change-me-in-production")
 DEBUG = os.environ.get("DEBUG", "False") == "True"
 
+# ── Hosts permitidos ──────────────────────────────────────────────────────────
 ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
-
-# Railway healthcheck y dominio público
-ALLOWED_HOSTS += ["healthcheck.railway.app", ".railway.app"]
+ALLOWED_HOSTS += [
+    ".railway.app",
+    ".pythonanywhere.com",
+]
+# Railway (si aplica)
 RAILWAY_HOST = os.environ.get("RAILWAY_PUBLIC_DOMAIN", "")
 if RAILWAY_HOST and RAILWAY_HOST not in ALLOWED_HOSTS:
     ALLOWED_HOSTS.append(RAILWAY_HOST)
@@ -58,7 +61,8 @@ TEMPLATES = [
 WSGI_APPLICATION = "support_system.wsgi.application"
 
 # ── Database ──────────────────────────────────────────────────────────────────
-# Railway inyecta DATABASE_URL automáticamente al agregar PostgreSQL
+# Railway inyecta DATABASE_URL; en PythonAnywhere configúralo manualmente
+# si no hay DATABASE_URL, cae a SQLite (funciona en PA gratuito)
 DATABASE_URL = os.environ.get("DATABASE_URL")
 if DATABASE_URL:
     import dj_database_url
@@ -86,7 +90,12 @@ USE_TZ = True
 # ── Static & Media ────────────────────────────────────────────────────────────
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
-STATICFILES_DIRS = [BASE_DIR / "static"]
+
+# Solo agregar STATICFILES_DIRS si el directorio existe (evita W004)
+_static_dir = BASE_DIR / "static"
+if _static_dir.exists():
+    STATICFILES_DIRS = [_static_dir]
+
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 MEDIA_URL = "/media/"
@@ -112,35 +121,34 @@ if _cloudinary_url:
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # ── Email ─────────────────────────────────────────────────────────────────────
-# Email via Resend API (no SMTP)
-RESEND_API_KEY     = os.environ.get("RESEND_API_KEY", "")
-DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "soporte@perseustechnology.dev")
-EMAIL_BACKEND      = "django.core.mail.backends.console.EmailBackend"
+# Emails via Resend API (HTTPS, no SMTP — funciona en Railway y PythonAnywhere)
+RESEND_API_KEY             = os.environ.get("RESEND_API_KEY", "")
+DEFAULT_FROM_EMAIL         = os.environ.get("DEFAULT_FROM_EMAIL", "soporte@perseustechnology.dev")
+ADMIN_NOTIFICATION_EMAIL   = os.environ.get("ADMIN_NOTIFICATION_EMAIL", DEFAULT_FROM_EMAIL)
+# El backend de Django no se usa realmente (el modelo llama Resend directo),
+# pero console evita errores si RESEND_API_KEY no está configurada
+EMAIL_BACKEND              = "django.core.mail.backends.console.EmailBackend"
 
 SITE_URL = os.environ.get("SITE_URL", "http://localhost:8000")
 
 # ── Auth ──────────────────────────────────────────────────────────────────────
-LOGIN_URL          = "/accounts/login/"
-LOGIN_REDIRECT_URL = "/"
+LOGIN_URL           = "/accounts/login/"
+LOGIN_REDIRECT_URL  = "/"
 LOGOUT_REDIRECT_URL = "/accounts/login/"
 
-# ── Security (producción) ─────────────────────────────────────────────────────
-if not DEBUG:
-    CSRF_TRUSTED_ORIGINS = [
-        f"https://{RAILWAY_HOST}",
-        f"https://*.railway.app",
-    ]
-    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
-
-# CSRF siempre activo (no solo en producción)
+# ── CSRF y Security ───────────────────────────────────────────────────────────
+# Siempre activo — cubre Railway, PythonAnywhere y dominios custom
 CSRF_TRUSTED_ORIGINS = [
     "https://*.railway.app",
     "https://support-tickets-production-61ff.up.railway.app",
+    "https://*.pythonanywhere.com",
 ]
+# Dominios adicionales via variable de entorno (ej: dominio propio)
 extra_csrf = os.environ.get("CSRF_TRUSTED_ORIGINS", "")
 if extra_csrf:
     CSRF_TRUSTED_ORIGINS += [o.strip() for o in extra_csrf.split(",") if o.strip()]
 
+# PythonAnywhere y Railway usan proxy HTTPS
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
 # ── Logging ───────────────────────────────────────────────────────────────────

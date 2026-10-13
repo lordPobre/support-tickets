@@ -2,7 +2,147 @@ from django.contrib import admin
 from django import forms
 from django.utils.html import format_html
 from django.db.models import Sum, Count
+from django.http import HttpResponse
+from django.utils import timezone
 from .models import Company, CompanyUser, Ticket, TicketStatus, TicketPriority, TicketAttachment, TicketComment, Equipment
+
+
+def _generate_billing_pdf(tickets_qs, company_name):
+    """Genera un PDF de cobro para los tickets dados. Devuelve bytes."""
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib import colors
+    from reportlab.lib.units import cm
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, HRFlowable
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.enums import TA_CENTER, TA_RIGHT, TA_LEFT
+    import io
+
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=A4,
+        rightMargin=2*cm, leftMargin=2*cm,
+        topMargin=2*cm, bottomMargin=2*cm,
+    )
+
+    styles = getSampleStyleSheet()
+    brand_color = colors.HexColor("#4F46E5")
+    dark = colors.HexColor("#111827")
+    muted = colors.HexColor("#6B7280")
+    light_bg = colors.HexColor("#F9FAFB")
+    border = colors.HexColor("#E5E7EB")
+
+    style_title = ParagraphStyle("title", fontSize=22, textColor=brand_color,
+                                  fontName="Helvetica-Bold", spaceAfter=2)
+    style_sub = ParagraphStyle("sub", fontSize=11, textColor=dark,
+                                fontName="Helvetica-Bold", spaceAfter=2)
+    style_meta = ParagraphStyle("meta", fontSize=9, textColor=muted,
+                                 fontName="Helvetica")
+    style_center = ParagraphStyle("center", fontSize=9, alignment=TA_CENTER,
+                                   fontName="Helvetica")
+    style_right = ParagraphStyle("right", fontSize=9, alignment=TA_RIGHT,
+                                  fontName="Helvetica")
+    style_total_label = ParagraphStyle("tlabel", fontSize=12, textColor=dark,
+                                        fontName="Helvetica-Bold", alignment=TA_RIGHT)
+    style_total_val = ParagraphStyle("tval", fontSize=14, textColor=brand_color,
+                                      fontName="Helvetica-Bold", alignment=TA_RIGHT)
+
+    now = timezone.localtime(timezone.now())
+    fecha_str = now.strftime("%-d de %B de %Y").replace(
+        "January","enero").replace("February","febrero").replace("March","marzo").replace(
+        "April","abril").replace("May","mayo").replace("June","junio").replace(
+        "July","julio").replace("August","agosto").replace("September","septiembre").replace(
+        "October","octubre").replace("November","noviembre").replace("December","diciembre")
+
+    story = []
+
+    # Encabezado
+    story.append(Paragraph("Perseus Technology", style_title))
+    story.append(Paragraph("Detalle de Cobro — Soporte TI", style_sub))
+    story.append(Spacer(1, 0.1*cm))
+    story.append(Paragraph(f"Empresa: <b>{company_name}</b>", style_meta))
+    story.append(Paragraph(f"Fecha de emisión: {fecha_str}", style_meta))
+    story.append(Spacer(1, 0.4*cm))
+    story.append(HRFlowable(width="100%", thickness=1.5, color=brand_color))
+    story.append(Spacer(1, 0.4*cm))
+
+    # Tabla
+    tickets = list(tickets_qs.select_related("status", "priority").order_by("created_at"))
+    col_widths = [2.2*cm, 6.8*cm, 3.2*cm, 2.4*cm, 2.4*cm]
+    header = [
+        Paragraph("<b>Token</b>", style_center),
+        Paragraph("<b>Asunto</b>", style_center),
+        Paragraph("<b>Categoría</b>", style_center),
+        Paragraph("<b>Estado</b>", style_center),
+        Paragraph("<b>Valor (CLP)</b>", style_center),
+    ]
+    data = [header]
+
+    total = 0
+    for t in tickets:
+        valor = t.assigned_value
+        if valor is not None:
+            total += valor
+            valor_str = f"$ {int(valor):,}".replace(",", ".")
+        else:
+            valor_str = "—"
+
+        cat_display = {
+            "software": "Software",
+            "hardware": "Hardware",
+            "email": "Email",
+        }.get(t.category, t.category)
+
+        estado_str = t.status.name if t.status else "—"
+
+        data.append([
+            Paragraph(f'<font color="#4F46E5"><b>{t.token}</b></font>', style_center),
+            Paragraph(t.subject, styles["Normal"]),
+            Paragraph(cat_display, style_center),
+            Paragraph(estado_str, style_center),
+            Paragraph(f'<b>{valor_str}</b>', style_right),
+        ])
+
+    table = Table(data, colWidths=col_widths, repeatRows=1)
+    table.setStyle(TableStyle([
+        # Header
+        ("BACKGROUND", (0, 0), (-1, 0), brand_color),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, 0), 9),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, light_bg]),
+        ("GRID", (0, 0), (-1, -1), 0.5, border),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("TOPPADDING", (0, 0), (-1, -1), 6),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+        ("LEFTPADDING", (0, 0), (-1, -1), 8),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+        ("FONTSIZE", (0, 1), (-1, -1), 8),
+    ]))
+    story.append(table)
+    story.append(Spacer(1, 0.6*cm))
+    story.append(HRFlowable(width="100%", thickness=0.5, color=border))
+    story.append(Spacer(1, 0.3*cm))
+
+    # Total
+    total_fmt = f"$ {int(total):,}".replace(",", ".")
+    ticket_count = len(tickets)
+    story.append(Paragraph(f"Total de tickets: {ticket_count}", style_meta))
+    story.append(Spacer(1, 0.2*cm))
+    story.append(Paragraph("TOTAL A COBRAR", style_total_label))
+    story.append(Paragraph(total_fmt, style_total_val))
+    story.append(Spacer(1, 0.6*cm))
+    story.append(HRFlowable(width="100%", thickness=0.5, color=border))
+    story.append(Spacer(1, 0.3*cm))
+    story.append(Paragraph(
+        "Este documento es un detalle interno de servicios prestados. "
+        "Perseus Technology — soporte@perseustechnology.dev",
+        style_meta
+    ))
+
+    doc.build(story)
+    buffer.seek(0)
+    return buffer.read()
 
 
 class CompanyUserInline(admin.TabularInline):
@@ -131,6 +271,28 @@ class TicketAdmin(admin.ModelAdmin):
     date_hierarchy = "created_at"
     inlines = [TicketAttachmentInline, TicketCommentInline]
     save_on_top = True
+    actions = ["generar_cobro_pdf"]
+
+    @admin.action(description="📄 Generar PDF de cobro para los tickets seleccionados")
+    def generar_cobro_pdf(self, request, queryset):
+        # Detectar empresa(s) en la selección
+        companies = queryset.values_list("company__name", flat=True).distinct()
+        if companies.count() > 1:
+            company_name = "Varias empresas"
+            filename_slug = "cobro_multiple"
+        else:
+            company_name = companies.first() or "Sin empresa"
+            filename_slug = company_name.lower().replace(" ", "_")
+
+        pdf_bytes = _generate_billing_pdf(queryset, company_name)
+
+        now = timezone.localtime(timezone.now())
+        fecha = now.strftime("%Y%m%d")
+        filename = f"cobro_{filename_slug}_{fecha}.pdf"
+
+        response = HttpResponse(pdf_bytes, content_type="application/pdf")
+        response["Content-Disposition"] = f'attachment; filename="{filename}"'
+        return response
 
     fieldsets = (
         ("Información del Ticket", {
